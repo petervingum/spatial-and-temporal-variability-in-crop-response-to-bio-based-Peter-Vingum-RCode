@@ -5,23 +5,312 @@ format: html
 editor: visual
 ---
 
-## Quarto
+# Code for thesis: Assessing spatial and temporal variability in crop response to bio-based and mineral fertilisers, using remote sensing
 
-Quarto enables you to weave together content and executable code into a finished document. To learn more about Quarto see <https://quarto.org>.
+Code created by Peter Vingum.
 
-## Running Code
+## Introduction
 
-When you click the **Render** button a document will be generated that includes both content and the output of embedded code. You can embed code like this:
+In the following document i have tried to collect all code used for assessing the questions related to the thesis. I will try to annotate, but excuse if it is not straightforward to follow.
 
-```{r}
-1 + 1
-```
+## Setup
 
-You can add options to executable code like this
+### Loading libraries
 
 ```{r}
-#| echo: false
-2 * 2
+#Loading libraries
+library(here)
+library(fs)
+library(ggplot2)
+library(knitr)
+library(kableExtra)
+library(tidyverse)
+library(lme4)
+library(car)
+library(emmeans)
+library(broom)
+library(patchwork)
+library(nlme)
+library(mgcv)
+library(multcompView)
+library(lubridate)
+library(ggpubr)
+library(ggplot2)
 ```
 
-The `echo: false` option disables the printing of code (only output is displayed).
+### Setting working directory
+
+```{r}
+here::i_am("Code for Assessing spatial and temporal variability in crop response to bio-based and mineral fertilisers, using remote sensing.qmd") 
+```
+
+### Setting theme for plots
+
+```{r}
+my_theme <- theme_update(
+        axis.title = element_text(size = 18),
+        axis.text = element_text(size = 16),
+        plot.title = element_text(size = 20),
+        legend.title = element_text(size = 18),
+        legend.text = element_text(size = 16),
+        strip.text = element_text(size = 16)
+    )
+
+# Color palette
+treatment_colors_lp <- c("OG2, Residual fertiliser" = "#1f77b4",  
+                     "OG2" = "#ff7f0e",  
+                     "Mineral" = "#2ca02c", 
+                     "Control" = "#d62728") 
+#Treatment labels
+treatment_labels_lp <- c(  "OG2_residual" = "OG2, Residual fertiliser",
+  "OG2" = "OG2",
+  "MIN" = "Mineral",
+  "CON" = "Control"
+)
+```
+
+### Defining dates and standards
+
+```{r}
+#Dates spring barley (2021)
+start_date_sb = as.Date("2021-04-01")
+end_date_sb = as.Date("2021-08-25")
+
+#Dates wheat residual
+start_date_wwres = as.Date("2021-09-01")
+end_date_wwres = as.Date("2022-08-25")
+
+#Dates wheat non residual
+start_date_ww = as.Date("2022-03-30")
+end_date_ww = as.Date("2022-08-25")
+
+#Alternative dates for "zoom"! 
+# #Dates spring barley (2021) 
+# start_date_sb = as.Date("2021-05-10")
+# end_date_sb = as.Date("2021-07-10")
+# 
+# #Dates wheat residual
+# start_date_wwres = as.Date("2022-05-10")
+# end_date_wwres = as.Date("2022-07-10")
+# 
+# #Dates wheat non residual
+# start_date_ww = as.Date("2022-05-10")
+# end_date_ww = as.Date("2022-07-10")
+```
+
+### Loading data
+
+```{r}
+
+```
+
+## Functions for analysis
+
+### Large-plot trial satellite temporal variation and CV
+
+```{r}
+lme_analysis_lp <- function(data, response_var, treatment_var = "Treatment", plot_id_var = "PLOT_ID", date_var = "timestamp", start_date, end_date, identifier, plottitle) {
+  
+  # Find the name of the df
+  data_name <- deparse(substitute(data))
+  
+  # Since we run the code multiple times namin is important
+  name_prefix <- paste0(data_name, "_", response_var, "_", identifier)
+  
+  # Ensuring data is correctly formatted
+  data <- transform(data,
+                    timestamp = as.Date(data[[date_var]]),
+                    Date = ymd(data[[date_var]]),
+                    DateFactor = as.factor(data[[date_var]]))
+  
+# Recode treatment factor levels
+  data[[treatment_var]] <- factor(data[[treatment_var]], 
+                                 levels = names(treatment_labels),
+                                 labels = treatment_labels)
+  
+  #Using the dates from above for analysis
+  subset_data <- subset(data, timestamp >= start_date & timestamp <= end_date)
+  
+  #We need a numeric variable for the timedata for the corAR1 argument
+  subset_data$timeSinceStart <- as.numeric(subset_data$Date - min(subset_data$Date))
+  
+  # Print information with dynamic naming
+  # cat(paste0("Initial data dimensions for ", name_prefix, ": ", paste(dim(data), collapse = " x "), "\n"))
+  # cat(paste0("Date range for ", name_prefix, ": ", start_date, " to ", end_date, "\n"))
+  # cat(paste0("Date variable class for ", name_prefix, ": ", class(data[[date_var]]), "\n"))
+  # cat(paste0("Date variable range for ", name_prefix, ": ", min(data[[date_var]]), " to ", max(data[[date_var]]), "\n"))
+  # cat(paste0("Dimensions of subset data for ", name_prefix, ": ", paste(dim(subset_data), collapse = " x "), "\n"))
+  
+  # Identifying variables for analysis 
+  fixed_formula <- as.formula(paste(response_var, "~", treatment_var, "*DateFactor"))
+  random_formula <- as.formula(paste("~1|", plot_id_var))
+  correlation_formula <- as.formula(paste("~timeSinceStart|", plot_id_var))
+  
+  # Creating and fitting models with and without interaction
+  mod_int <- lme(fixed_formula, 
+                 random = random_formula, 
+                 correlation = corAR1(form = correlation_formula), 
+                 data = subset_data, method = "ML")
+  
+  mod_no_int <- lme(update(fixed_formula, . ~ . - Treatment:DateFactor), 
+                    random = random_formula, 
+                    correlation = corAR1(form = correlation_formula), 
+                    data = subset_data, method = "ML",
+                    control = lmeControl(msMaxIter = 2000, msMaxEval = 2000, returnObject=TRUE))
+  
+  # Comparison of models
+  anova_result <- anova(mod_int, mod_no_int)
+  
+  # Print formulas with dynamic naming
+  # cat(paste0("\nFormulas for ", name_prefix, ":\n"))
+  # cat(paste0("Fixed effects (with interaction): ", deparse(fixed_formula), "\n"))
+  # cat(paste0("Random effects: ", deparse(random_formula), "\n"))
+  # cat(paste0("Correlation structure: ", deparse(correlation_formula), "\n"))
+  
+  # Plotting
+  #Residualplot no int
+  plot1 <- ggplot(subset_data, aes(x = timeSinceStart, 
+                                   y = residuals(mod_no_int, type = "normalized"),
+                                   col = .data[[treatment_var]])) +
+    geom_point() +
+    geom_smooth() +
+    scale_color_manual(values = treatment_colors_lp) +
+    labs(x = "Time since start", y = "Residuals", col = "Treatment", 
+         title = paste(name_prefix, "No interaction between Treatment and time,", start_date, "to", end_date))
+  
+  #Residualplot int
+  plot2 <- ggplot(subset_data, aes(x = timeSinceStart, 
+                                   y = residuals(mod_int, type = "normalized"),
+                                   col = .data[[treatment_var]])) +
+    geom_point() +
+    geom_smooth() +
+    scale_color_manual(values = treatment_colors_lp) +
+    labs(x = "Time since start", y = "Residuals", col = "Treatment", 
+         title = paste(name_prefix, "Interaction between Treatment and time,", start_date, "to", end_date))
+  
+  #Mainplot
+  plot3 <- ggplot(subset_data, aes(x = Date, 
+                                   y = .data[[response_var]],
+                                   col = .data[[treatment_var]])) +
+    geom_point() +
+    geom_smooth(span = 0.4) +
+    scale_color_manual(values = treatment_colors_lp) +
+    labs(x = "Date", y = response_var, col = "Treatment", 
+         title = paste(plottitle))
+  
+  # Creating a list for results
+  results <- list(
+    model_interaction = mod_int,
+    model_no_interaction = mod_no_int,
+    anova_result = anova_result,
+    plot_residuals_no_int = plot1,
+    plot_residuals_int = plot2,
+    plot_response = plot3
+  )
+  
+  # Renaming the elements in the list, to distinguish finished or semifinished plots
+  names(results) <- c(
+    paste0("mod_int_", name_prefix),
+    paste0("mod_no_int_", name_prefix),
+    paste0("anova_result_", name_prefix),
+    paste0("plot_residuals_no_int_", name_prefix),
+    paste0("plot_residuals_int_", name_prefix),
+    paste0("plot_response_", name_prefix)
+  )
+  
+  return(results)
+}
+
+```
+
+## Running functions
+
+```{r}
+ndre_data25 <- read.csv("/Users/petervingum/Library/CloudStorage/OneDrive-UniversityofCopenhagen/Speciale/lex4bio/ndre_data25.csv")
+
+# Run analysis for spring barley (2021)
+results_ndre_data25_mean_sb <- lme_analysis(ndre_data25, 
+                           response_var = "mean", 
+                           treatment_var = "Treatment",
+                           plot_id_var = "PLOT_ID",
+                           date_var = "timestamp",
+                           start_date = start_date_sb, 
+                           end_date = end_date_sb,
+                           identifier = "sb" ,
+                           plottitle = "NDRE over time, large-plot trial - Spring Barley - 2021")
+
+results_ndre_data25_mean_sb$plot_response_ndre_data25_mean_sb <- 
+  results_ndre_data25_mean_sb$plot_response_ndre_data25_mean_sb +
+  labs(y = "Mean", 
+       col = "Treatment")
+
+# Renaming things in residual without interaction plot
+results_ndre_data25_mean_sb$plot_residuals_no_int_ndre_data25_mean_sb <- 
+  results_ndre_data25_mean_sb$plot_residuals_no_int_ndre_data25_mean_sb +
+  labs(y = "Residuals", 
+       col = "Treatment",
+       title = "NDRE over time, no interaction, Spring Barley, 2021") 
+#Renaming things in residual plot with interaction:
+results_ndre_data25_mean_sb$plot_residuals_int_ndre_data25_mean_sb <- 
+  results_ndre_data25_mean_sb$plot_residuals_int_ndre_data25_mean_sb +
+  labs(y = "Residuals", 
+       col = "Treatment",
+       title = "NDRE over time, with interaction, Spring Barley, 2021") 
+
+
+# Access results with new names
+print(results_ndre_data25_mean_sb$anova_result_ndre_data25_mean_sb)
+
+# Display plots with new names
+print(results_ndre_data25_mean_sb$plot_residuals_no_int_ndre_data25_mean_sb)
+print(results_ndre_data25_mean_sb$plot_residuals_int_ndre_data25_mean_sb)
+print(results_ndre_data25_mean_sb$plot_response_ndre_data25_mean_sb)
+
+# Run analysis for spring Winter wheat (2022)
+results_ndre_data25_mean_ww <- lme_analysis(ndre_data25, 
+                           response_var = "mean", 
+                           treatment_var = "Treatment",
+                           plot_id_var = "PLOT_ID",
+                           date_var = "timestamp",
+                           start_date = start_date_ww, 
+                           end_date = end_date_ww,
+                           identifier = "ww",
+                           plottitle = "NDRE over time, large-plot trial - Winter Wheat - 2022")
+# Renaming things in plot
+results_ndre_data25_mean_ww$plot_response_ndre_data25_mean_ww <- 
+  results_ndre_data25_mean_ww$plot_response_ndre_data25_mean_ww +
+  labs(y = "Mean", 
+       col = "Treatment",
+       )  # This renames both the y-axis and legend title
+
+# Renaming things in residual without interaction plot
+results_ndre_data25_mean_ww$plot_residuals_no_int_ndre_data25_mean_ww <- 
+  results_ndre_data25_mean_ww$plot_residuals_no_int_ndre_data25_mean_ww +
+  labs(y = "Residuals", 
+       col = "Treatment",
+       title = "NDRE over time, no interaction, Winter Wheat, 2022") 
+#Renaming things in residual plot with interaction:
+results_ndre_data25_mean_ww$plot_residuals_int_ndre_data25_mean_ww <- 
+  results_ndre_data25_mean_ww$plot_residuals_int_ndre_data25_mean_ww +
+  labs(y = "Residuals", 
+       col = "Treatment",
+       title = "NDRE over time, with interaction, Winter Wheat, 2022") 
+
+# Access results with new names
+print(results_ndre_data25_mean_ww$anova_result_ndre_data25_mean_ww)
+
+# Display plots with new names
+print(results_ndre_data25_mean_ww$plot_residuals_no_int_ndre_data25_mean_ww)
+print(results_ndre_data25_mean_ww$plot_residuals_int_ndre_data25_mean_ww)
+print(results_ndre_data25_mean_ww$plot_response_ndre_data25_mean_ww)
+# Combine plots vertically with same width
+combined_plot <- ggarrange(results_ndre_data25_mean_sb$plot_response_ndre_data25_mean_sb, results_ndre_data25_mean_ww$plot_response_ndre_data25_mean_ww,
+                         ncol = 1,           # Stack vertically
+                         align = "v",        # Align vertically
+                         common.legend = FALSE) # Keep separate legends
+
+# Save with fixed dimensions
+
+results_ndre_data25_mean_ww$plot_residuals_no_int_ndre_data25_mean_ww
+levels(factor(ndre_data25$Treatment_2022))
+```
