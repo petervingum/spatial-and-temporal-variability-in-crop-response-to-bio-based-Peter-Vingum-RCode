@@ -137,6 +137,10 @@ ndvi_data26 <- read_csv(here("data", "ndvi_data26.csv"))
 ndvi_data26_residual <- read_csv(here("data", "ndvi_data26_residual.csv"))
 ndre_data26 <- read_csv(here("data", "ndre_data26.csv")) 
 ndre_data26_residual <- read_csv(here("data", "ndre_data26_residual.csv"))
+ndre_data26 <- read_csv(here("data", "ndre_data26.csv")) 
+ndvi_uav_field26 <- read_csv(here("data", "ndvi_uav_field26.csv"))
+ndvi_uav_field26_residual <- read_csv(here("data", "ndvi_uav_field26_residual.csv"))
+
 ```
 
 ## Functions for analysis
@@ -158,7 +162,7 @@ lme_analysis_lp <- function(data, response_var, treatment_var = "Treatment", plo
                     Date = ymd(data[[date_var]]),
                     DateFactor = as.factor(data[[date_var]]))
   
-# Recode treatment factor levels
+  # Recode treatment factor levels
   data[[treatment_var]] <- factor(data[[treatment_var]], 
                                  levels = names(treatment_labels_lp),
                                  labels = treatment_labels_lp)
@@ -220,6 +224,25 @@ lme_analysis_lp <- function(data, response_var, treatment_var = "Treatment", plo
     labs(x = "Date", y = response_var, col = "Treatment", 
          title = paste(plottitle))
   
+  # Adding QQ plots for both models
+  # QQ plot for model without interaction
+  plot4 <- ggplot(data.frame(residuals = residuals(mod_no_int, type = "normalized")), 
+                  aes(sample = residuals)) +
+    stat_qq() +
+    stat_qq_line() +
+    labs(title = paste(name_prefix, "QQ Plot - Model without interaction"),
+         x = "Theoretical Quantiles",
+         y = "Sample Quantiles")
+
+  # QQ plot for model with interaction
+  plot5 <- ggplot(data.frame(residuals = residuals(mod_int, type = "normalized")), 
+                  aes(sample = residuals)) +
+    stat_qq() +
+    stat_qq_line() +
+    labs(title = paste(name_prefix, "QQ Plot - Model with interaction"),
+         x = "Theoretical Quantiles",
+         y = "Sample Quantiles")
+  
   # Creating a list for results
   results <- list(
     model_interaction = mod_int,
@@ -227,7 +250,9 @@ lme_analysis_lp <- function(data, response_var, treatment_var = "Treatment", plo
     anova_result = anova_result,
     plot_residuals_no_int = plot1,
     plot_residuals_int = plot2,
-    plot_response = plot3
+    plot_response = plot3,
+    plot_qq_no_int = plot4,
+    plot_qq_int = plot5
   )
   
   # Renaming the elements in the list, to distinguish finished or semifinished plots
@@ -237,7 +262,9 @@ lme_analysis_lp <- function(data, response_var, treatment_var = "Treatment", plo
     paste0("anova_result_", name_prefix),
     paste0("plot_residuals_no_int_", name_prefix),
     paste0("plot_residuals_int_", name_prefix),
-    paste0("plot_response_", name_prefix)
+    paste0("plot_response_", name_prefix),
+    paste0("plot_qq_no_int_", name_prefix),
+    paste0("plot_qq_int_", name_prefix)
   )
   
   return(results)
@@ -333,6 +360,23 @@ lme_analysis_lp_uav <- function(data, response_var, treatment_var = "Treatment",
     labs(x = "Date", y = response_var, col = "Treatment", 
          title = plottitle)
   
+  # Adding QQ plots
+  plot4 <- ggplot(data.frame(residuals = residuals(mod_no_int, type = "normalized")), 
+                  aes(sample = residuals)) +
+    stat_qq() +
+    stat_qq_line() +
+    labs(title = paste(name_prefix, "QQ Plot - Model without interaction"),
+         x = "Theoretical Quantiles",
+         y = "Sample Quantiles")
+
+  plot5 <- ggplot(data.frame(residuals = residuals(mod_int, type = "normalized")), 
+                  aes(sample = residuals)) +
+    stat_qq() +
+    stat_qq_line() +
+    labs(title = paste(name_prefix, "QQ Plot - Model with interaction"),
+         x = "Theoretical Quantiles",
+         y = "Sample Quantiles")
+  
   # Create named list for results
   results <- list(
     model_interaction = mod_int,
@@ -340,7 +384,9 @@ lme_analysis_lp_uav <- function(data, response_var, treatment_var = "Treatment",
     anova_result = anova(mod_int, mod_no_int),
     plot_residuals_no_int = plot1,
     plot_residuals_int = plot2,
-    plot_response = plot3
+    plot_response = plot3,
+    plot_qq_no_int = plot4,
+    plot_qq_int = plot5
   )
   
   # Rename the elements in the list
@@ -350,7 +396,9 @@ lme_analysis_lp_uav <- function(data, response_var, treatment_var = "Treatment",
     paste0("anova_result_", name_prefix),
     paste0("plot_residuals_no_int_", name_prefix),
     paste0("plot_residuals_int_", name_prefix),
-    paste0("plot_response_", name_prefix)
+    paste0("plot_response_", name_prefix),
+    paste0("plot_qq_no_int_", name_prefix),
+    paste0("plot_qq_int_", name_prefix)
   )
   
   return(results)
@@ -518,28 +566,362 @@ plot3 <- ggarrange(plot_ref, plot_bbf1, plot_bbf2,
                   heights = c(1, 1, 1),
                   align = "v",
                   common.legend = FALSE)
+ plot4 <- ggplot(data.frame(residuals = residuals(mod_no_int, type = "normalized")), 
+                  aes(sample = residuals)) +
+    stat_qq() +
+    stat_qq_line() +
+    labs(title = paste(name_prefix, "QQ Plot - Model without interaction"),
+         x = "Theoretical Quantiles",
+         y = "Sample Quantiles")
 
-  # Create named list for results
+  plot5 <- ggplot(data.frame(residuals = residuals(mod_int, type = "normalized")), 
+                  aes(sample = residuals)) +
+    stat_qq() +
+    stat_qq_line() +
+    labs(title = paste(name_prefix, "QQ Plot - Model with interaction"),
+         x = "Theoretical Quantiles",
+         y = "Sample Quantiles")
+
+  # Update results list to include QQ plots
   results <- list(
-    #####And comment out here:
     model_interaction = mod_int,
     model_no_interaction = mod_no_int,
     anova_result = anova_result,
     plot_residuals_no_int = plot1,
     plot_residuals_int = plot2,
-    ######to here
-    plot_response = plot3
+    plot_response = plot3,
+    plot_qq_no_int = plot4,
+    plot_qq_int = plot5
   )
   
-  # Rename the elements in the list
-  names(results) <- c( ######and comment out here
+  # Update names list to include QQ plots
+  names(results) <- c(
     paste0("mod_int_", name_prefix),
     paste0("mod_no_int_", name_prefix),
     paste0("anova_result_", name_prefix),
     paste0("plot_residuals_no_int_", name_prefix),
     paste0("plot_residuals_int_", name_prefix),
-    ######to here
-    paste0("plot_response_", name_prefix)
+    paste0("plot_response_", name_prefix),
+    paste0("plot_qq_no_int_", name_prefix),
+    paste0("plot_qq_int_", name_prefix)
+  )
+  
+  return(results)
+}
+```
+
+### Small plot trial UAV mean function splitting plot in 3
+
+```{r}
+reflectance26_analysis_uav <- function(data, response_var, treatment_var, 
+                                   plot_id_var, block_var,
+                                   date_var, start_date, end_date, identifier) {
+  
+  # DF
+  data_name <- deparse(substitute(data))
+  name_prefix <- paste0(data_name, "_", response_var, "_", identifier)
+  
+  # Data preprocessing with explicit checks
+  data <- data %>%
+    mutate(
+      timestamp = as.Date(!!sym(date_var)),
+      Date = timestamp,
+      DateFactor = as.factor(timestamp),
+      Treatment = as.factor(!!sym(treatment_var))
+    ) %>%
+    filter(!is.na(timestamp)) %>%
+    filter(timestamp >= start_date & timestamp <= end_date)
+  
+  # time since start
+  data <- data %>%
+    group_by(!!sym(plot_id_var)) %>%
+    mutate(timeSinceStart = as.numeric(timestamp - min(timestamp))) %>%
+    ungroup()
+  
+  # Subset date range
+  subset_data <- subset(data, timestamp >= start_date & timestamp <= end_date)
+  
+  # Create formulas
+  fixed_formula_int <- as.formula(paste(response_var, "~", treatment_var, "* DateFactor"))
+  fixed_formula_no_int <- as.formula(paste(response_var, "~", treatment_var, "+ DateFactor"))
+  random_formula <- as.formula(paste("~ 1 |", block_var, "/", plot_id_var))
+  correlation_formula <- as.formula(paste("~ timeSinceStart |", block_var, "/", plot_id_var))
+  
+  # Fit models
+  mod_int <- lme(fixed_formula_int, 
+                 random = random_formula, 
+                 correlation = corAR1(form = correlation_formula), 
+                 data = subset_data, method = "ML")
+  
+  mod_no_int <- lme(fixed_formula_no_int, 
+                    random = random_formula, 
+                    correlation = corAR1(form = correlation_formula), 
+                    data = subset_data, method = "ML")
+  
+  # ANOVA comparison
+  anova_result <- anova(mod_int, mod_no_int)
+  
+  # Plotting with consistent colors
+  plot1 <- ggplot(subset_data, aes(x = timeSinceStart, 
+                                   y = residuals(mod_no_int, type = "normalized"),
+                                   col = .data[[treatment_var]])) +
+    geom_point() +
+    geom_smooth(se=FALSE) +
+    scale_color_manual(values = treatment_colors) +
+    labs(x = "Time since start", y = "Residuals", col = "Treatment", 
+         title = paste(name_prefix, "No interaction between Treatment and time,", start_date, "to", end_date))
+  
+  plot2 <- ggplot(subset_data, aes(x = timeSinceStart, 
+                                   y = residuals(mod_int, type = "normalized"),
+                                   col = .data[[treatment_var]])) +
+    geom_point() +
+    geom_smooth(se=FALSE) +
+    scale_color_manual(values = treatment_colors) +
+    labs(x = "Time since start", y = "Residuals", col = "Treatment", 
+         title = paste(name_prefix, "Interaction between Treatment and time,", start_date, "to", end_date))
+  
+  # Create data subsets for plot3
+  ref_data <- subset_data[subset_data$Treatment %in% c("REF_1", "REF_2", "REF_3", "REF_4", "137 kg N/ha*"), ]
+  bbf1_data <- subset_data[subset_data$Treatment %in% c("REF_3","BA6", "BIO", "BVC", "ECO", "FEK"), ]
+  bbf2_data <- subset_data[subset_data$Treatment %in% c("REF_3","MO13", "OG2", "PCW", "SDG", "PAL"), ]
+  
+  # Calculate means
+  ref_means <- ref_data %>%
+    group_by(Date, Treatment) %>%
+    summarize(
+      mean_response = mean(.data[[response_var]], na.rm = TRUE),
+      .groups = 'drop'
+    )
+  
+  bbf1_means <- bbf1_data %>%
+    group_by(Date, Treatment) %>%
+    summarize(
+      mean_response = mean(.data[[response_var]], na.rm = TRUE),
+      .groups = 'drop'
+    )
+  
+  bbf2_means <- bbf2_data %>%
+    group_by(Date, Treatment) %>%
+    summarize(
+      mean_response = mean(.data[[response_var]], na.rm = TRUE),
+      .groups = 'drop'
+    )
+  
+  # plots with points and lines through means
+  plot_ref <- ggplot() +
+    geom_point(data = ref_data,
+               aes(x = Date, y = .data[[response_var]], 
+                   color = Treatment),
+               alpha = 0.4, size = 1) +
+    geom_line(data = ref_means,
+              aes(x = Date, y = mean_response, 
+                  color = Treatment),
+              linewidth = 1) +
+    scale_color_manual(values = treatment_colors) +
+    scale_y_continuous(
+      limits = c(min(subset_data[[response_var]]) * 0.95, 
+                max(subset_data[[response_var]]) * 1.05),
+      expand = expansion(mult = c(0.02, 0.02))
+    ) +
+    my_theme +
+    labs(x = "Date", 
+         y = response_var,
+         color = "Reference Treatments",
+         title = "Reference Treatments")
+
+  plot_bbf1 <- ggplot() +
+    geom_point(data = bbf1_data,
+               aes(x = Date, y = .data[[response_var]], 
+                   color = Treatment),
+               alpha = 0.4, size = 1) +
+    geom_line(data = bbf1_means,
+              aes(x = Date, y = mean_response, 
+                  color = Treatment),
+              linewidth = 1) +
+    scale_color_manual(values = treatment_colors) +
+    scale_y_continuous(
+      limits = c(min(subset_data[[response_var]]) * 0.95, 
+                max(subset_data[[response_var]]) * 1.05),
+      expand = expansion(mult = c(0.02, 0.02))
+    ) +
+    my_theme +
+    labs(x = "Date", 
+         y = response_var,
+         color = "BBF Treatments 1",
+         title = "BBF Treatments 1")
+
+  plot_bbf2 <- ggplot() +
+    geom_point(data = bbf2_data,
+               aes(x = Date, y = .data[[response_var]], 
+                   color = Treatment),
+               alpha = 0.4, size = 1) +
+    geom_line(data = bbf2_means,
+              aes(x = Date, y = mean_response, 
+                  color = Treatment),
+              linewidth = 1) +
+    scale_color_manual(values = treatment_colors) +
+    scale_y_continuous(
+      limits = c(min(subset_data[[response_var]]) * 0.95, 
+                max(subset_data[[response_var]]) * 1.05),
+      expand = expansion(mult = c(0.02, 0.02))
+    ) +
+    my_theme +
+    labs(x = "Date", 
+         y = response_var,
+         color = "BBF Treatments 2",
+         title = "BBF Treatments 2")
+
+  # Combine plots using ggarrange
+  plot3 <- ggarrange(plot_ref, plot_bbf1, plot_bbf2,
+                    ncol = 1,
+                    heights = c(1, 1, 1),
+                    align = "v",
+                    common.legend = FALSE)
+
+  plot4 <- ggplot(data.frame(residuals = residuals(mod_no_int, type = "normalized")), 
+                  aes(sample = residuals)) +
+    stat_qq() +
+    stat_qq_line() +
+    labs(title = paste(name_prefix, "QQ Plot - Model without interaction"),
+         x = "Theoretical Quantiles",
+         y = "Sample Quantiles")
+
+  plot5 <- ggplot(data.frame(residuals = residuals(mod_int, type = "normalized")), 
+                  aes(sample = residuals)) +
+    stat_qq() +
+    stat_qq_line() +
+    labs(title = paste(name_prefix, "QQ Plot - Model with interaction"),
+         x = "Theoretical Quantiles",
+         y = "Sample Quantiles")
+
+  # result list
+  results <- list(
+    model_interaction = mod_int,
+    model_no_interaction = mod_no_int,
+    anova_result = anova_result,
+    plot_residuals_no_int = plot1,
+    plot_residuals_int = plot2,
+    plot_response = plot3,
+    plot_qq_no_int = plot4,
+    plot_qq_int = plot5
+  )
+  
+  # adding names
+  names(results) <- c(
+    paste0("mod_int_", name_prefix),
+    paste0("mod_no_int_", name_prefix),
+    paste0("anova_result_", name_prefix),
+    paste0("plot_residuals_no_int_", name_prefix),
+    paste0("plot_residuals_int_", name_prefix),
+    paste0("plot_response_", name_prefix),
+    paste0("plot_qq_no_int_", name_prefix),
+    paste0("plot_qq_int_", name_prefix)
+  )
+  
+  return(results)
+}
+```
+
+### Function for comparing aggregated fertilisers to individual levels - satellite data
+
+```{r}
+reflectance26_analysis_aggregated <- function(data, response_var, treatment_var, treatment_var_aggregated, 
+                                   plot_id_var, block_var,
+                                   date_var, start_date, end_date, identifier, index) {
+  
+  # DF
+  data_name <- deparse(substitute(data))
+  
+  # Naming
+  name_prefix <- paste0(data_name, "_", response_var, "_", identifier)
+  
+  # Data preprocessing
+  data <- transform(data,
+                    timestamp = as.Date(data[[date_var]]),
+                    Date = ymd(data[[date_var]]),
+                    DateFactor = as.factor(data[[date_var]]),
+                    Treatment = as.factor(data[[treatment_var]]))
+  
+  data$timeSinceStart <- as.numeric(data$Date - min(data$Date))
+  
+  # Subset data
+  subset_data <- subset(data, timestamp >= start_date & timestamp <= end_date)
+  
+  # Create formulas
+  fixed_formula_int <- as.formula(paste(response_var, "~", treatment_var, "* DateFactor"))
+  fixed_formula_aggregated_int <- as.formula(paste(response_var, "~", treatment_var_aggregated, "* DateFactor"))
+  random_formula <- as.formula(paste("~ 1 |", block_var, "/", plot_id_var))
+  correlation_formula <- as.formula(paste("~ timeSinceStart |", block_var, "/", plot_id_var))
+  
+  # Fit models
+  mod_int <- lme(fixed_formula_int, 
+                 random = random_formula, 
+                 correlation = corAR1(form = correlation_formula), 
+                 data = subset_data, method = "ML")
+  
+  mod_aggregated_int <- lme(fixed_formula_aggregated_int, 
+                    random = random_formula, 
+                    correlation = corAR1(form = correlation_formula), 
+                    data = subset_data, method = "ML")
+  
+  # ANOVA comparison
+  anova_result <- anova(mod_int, mod_aggregated_int)
+  
+  # Plotting
+  plot1 <- ggplot(subset_data, aes(x = timeSinceStart, 
+                                   y = residuals(mod_aggregated_int, type = "normalized"),
+                                   col = .data[[treatment_var]])) +
+    geom_point() +
+    geom_smooth() +
+    scale_color_manual(values = treatment_colors) +
+    labs(x = "Time since start", y = "Residuals", col = "Treatment", 
+         title = paste(name_prefix, "No interaction between Treatment and time,", start_date, "to", end_date))
+  
+  plot2 <- ggplot(subset_data, aes(x = timeSinceStart, 
+                                   y = residuals(mod_int, type = "normalized"),
+                                   col = .data[[treatment_var]])) +
+    geom_point() +
+    geom_smooth() +
+    scale_color_manual(values = treatment_colors) +
+    labs(x = "Time since start", y = "Residuals", col = "Treatment", 
+         title = paste(name_prefix, "Interaction between Treatment and time,", start_date, "to", end_date))
+  
+ plot4 <- ggplot(data.frame(residuals = residuals(mod_aggregated_int, type = "normalized")), 
+                  aes(sample = residuals)) +
+    stat_qq() +
+    stat_qq_line() +
+    labs(title = paste(name_prefix, "QQ Plot - Model with aggregated treatments"),
+         x = "Theoretical Quantiles",
+         y = "Sample Quantiles")
+
+  plot5 <- ggplot(data.frame(residuals = residuals(mod_int, type = "normalized")), 
+                  aes(sample = residuals)) +
+    stat_qq() +
+    stat_qq_line() +
+    labs(title = paste(name_prefix, "QQ Plot - Model with individual treatments"),
+         x = "Theoretical Quantiles",
+         y = "Sample Quantiles")
+
+  # Update results list to include QQ plots
+  results <- list(
+    model_interaction = mod_int,
+    model_no_interaction = mod_aggregated_int,
+    anova_result = anova_result,
+    plot_residuals_no_int = plot1,
+    plot_residuals_int = plot2,
+    plot_qq_aggregated = plot4,
+    plot_qq_individual = plot5
+  )
+  
+  # Update names list to include QQ plots
+  names(results) <- c(
+    paste0("mod_int_", name_prefix),
+    paste0("mod_no_int_", name_prefix),
+    paste0("anova_result_", name_prefix),
+    paste0("plot_residuals_no_int_", name_prefix),
+    paste0("plot_residuals_int_", name_prefix),
+    paste0("plot_qq_aggregated_", name_prefix),
+    paste0("plot_qq_individual_", name_prefix)
   )
   
   return(results)
@@ -588,6 +970,8 @@ print(results_ndre_data25_mean_ww$anova_result_ndre_data25_mean_ww)
 print(results_ndre_data25_mean_ww$plot_residuals_no_int_ndre_data25_mean_ww)
 print(results_ndre_data25_mean_ww$plot_residuals_int_ndre_data25_mean_ww)
 print(results_ndre_data25_mean_ww$plot_response_ndre_data25_mean_ww)
+print(results_ndre_data25_mean_ww$plot_qq_no_int_ndre_data25_mean_ww)
+print(results_ndre_data25_mean_ww$plot_qq_int_ndre_data25_mean_ww)
 
 ```
 
@@ -632,6 +1016,8 @@ print(results_ndvi_data25_mean_ww$anova_result_ndvi_data25_mean_ww)
 print(results_ndvi_data25_mean_ww$plot_residuals_no_int_ndvi_data25_mean_ww)
 print(results_ndvi_data25_mean_ww$plot_residuals_int_ndvi_data25_mean_ww)
 print(results_ndvi_data25_mean_ww$plot_response_ndvi_data25_mean_ww)
+print(results_ndvi_data25_mean_ww$plot_qq_no_int_ndvi_data25_mean_ww)
+print(results_ndvi_data25_mean_ww$plot_qq_int_ndvi_data25_mean_ww)
 ```
 
 #### Mean NDRE UAV largeplot trial
@@ -668,13 +1054,11 @@ results_ndre_data25_uav_mean_ww <- lme_analysis_lp_uav(ndre_data25_uav,
 
 
 
-# Residuals plot without interaction
 print(results_ndre_data25_uav_mean_ww$plot_residuals_no_int_ndre_data25_uav_mean_ww)
-
-# Residuals plot with interaction
 print(results_ndre_data25_uav_mean_ww$plot_residuals_int_ndre_data25_uav_mean_ww)
-# Response plot
 print(results_ndre_data25_uav_mean_ww$plot_response_ndre_data25_uav_mean_ww)
+print(results_ndre_data25_uav_mean_ww$plot_qq_no_int_ndre_data25_uav_mean_ww)
+print(results_ndre_data25_uav_mean_ww$plot_qq_int_ndre_data25_uav_mean_ww)
 
 # ANOVA results
 print(results_ndre_data25_uav_mean_ww$anova_result_ndre_data25_uav_mean_ww)
@@ -713,13 +1097,12 @@ results_ndvi_data25_uav_mean_ww <- lme_analysis_lp_uav(ndvi_data25_uav,
 
 
 
-# Residuals plot without interaction
+# Print
 print(results_ndvi_data25_uav_mean_ww$plot_residuals_no_int_ndvi_data25_uav_mean_ww)
-
-# Residuals plot with interaction
 print(results_ndvi_data25_uav_mean_ww$plot_residuals_int_ndvi_data25_uav_mean_ww)
-# Response plot
 print(results_ndvi_data25_uav_mean_ww$plot_response_ndvi_data25_uav_mean_ww)
+print(results_ndvi_data25_uav_mean_ww$plot_qq_no_int_ndvi_data25_uav_mean_ww)
+print(results_ndvi_data25_uav_mean_ww$plot_qq_int_ndvi_data25_uav_mean_ww)
 
 # ANOVA results
 print(results_ndvi_data25_uav_mean_ww$anova_result_ndvi_data25_uav_mean_ww)
@@ -748,6 +1131,8 @@ print(results_ndre_data26_mean_sb$anova_result_ndre_data26_mean_sb)
 print(results_ndre_data26_mean_sb$plot_residuals_no_int_ndre_data26_mean_sb)
 print(results_ndre_data26_mean_sb$plot_residuals_int_ndre_data26_mean_sb)
 print(results_ndre_data26_mean_sb$plot_response_ndre_data26_mean_sb)
+print(results_ndre_data26_mean_sb$plot_qq_no_int_ndre_data26_mean_sb)
+print(results_ndre_data26_mean_sb$plot_qq_int_ndre_data26_mean_sb)
 
 ## Winter wheat results
 
@@ -768,32 +1153,30 @@ print(results_ndre_data26_mean_ww$anova_result_ndre_data26_mean_ww)
 print(results_ndre_data26_mean_ww$plot_residuals_no_int_ndre_data26_mean_ww)
 print(results_ndre_data26_mean_ww$plot_residuals_int_ndre_data26_mean_ww)
 print(results_ndre_data26_mean_ww$plot_response_ndre_data26_mean_ww)
+print(results_ndre_data26_mean_ww$plot_qq_no_int_ndre_data26_mean_ww)
+print(results_ndre_data26_mean_ww$plot_qq_int_ndre_data26_mean_ww)
 
 # Run analysis for residual fertilised plot
 #### Not able to run this part due to "False convergence". The plot can be made if the function is run again with the model section commented out. 
-results_ndre_data26_residual_mean_ww <- reflectance26_analysis(ndre_data26_residual,
-                                             response_var = "mean",
-                                             treatment_var = "Treatment",
-                                             plot_id_var = "PLOT_ID",
-                                             block_var = "Block_a",
-                                             date_var = "timestamp",
-                                             start_date = start_date_wwres,
-                                             end_date = end_date_wwres,
-                                             identifier = "ww",
-                                             index = "ndre")
+# results_ndre_data26_residual_mean_ww <- reflectance26_analysis(ndre_data26_residual,
+#                                              response_var = "mean",
+#                                              treatment_var = "Treatment",
+#                                              plot_id_var = "PLOT_ID",
+#                                              block_var = "Block_a",
+#                                              date_var = "timestamp",
+#                                              start_date = start_date_wwres,
+#                                              end_date = end_date_wwres,
+#                                              identifier = "ww",
+#                                              index = "ndre")
 
-results_ndre_data26_residual_mean_ww$plot_response_ndre_data26_residual_mean_ww <-
-  annotate_figure(results_ndre_data26_residual_mean_ww$plot_response_ndre_data26_residual_mean_ww,
-                 top = text_grob("ndre over time, Small plot trial - Winter Wheat, residual fertiliser - 2022",
-                               face = "bold", size = 14))
 
 # Access results with new names
-print(results_ndre_data26_residual_mean_ww$anova_result_ndre_data26_residual_mean_ww)
-
-# Display plots with new names
-print(results_ndre_data26_residual_mean_ww$plot_residuals_no_int_ndre_data26_residual_mean_ww)
-print(results_ndre_data26_residual_mean_ww$plot_residuals_int_ndre_data26_residual_mean_ww)
-print(results_ndre_data26_residual_mean_ww$plot_response_ndre_data26_residual_mean_ww)
+# print(results_ndre_data26_residual_mean_ww$anova_result_ndre_data26_residual_mean_ww)
+# 
+# # Display plots with new names
+# print(results_ndre_data26_residual_mean_ww$plot_residuals_no_int_ndre_data26_residual_mean_ww)
+# print(results_ndre_data26_residual_mean_ww$plot_residuals_int_ndre_data26_residual_mean_ww)
+# print(results_ndre_data26_residual_mean_ww$plot_response_ndre_data26_residual_mean_ww)
 ```
 
 #### Mean NDVI sat small plot trial
@@ -811,13 +1194,15 @@ results_ndvi_data26_mean_sb <- reflectance26_analysis(ndvi_data26,
                                              identifier = "sb",
                                              index ="NDVI")
 
-# Access results with new names
+# Access results
 print(results_ndvi_data26_mean_sb$anova_result_ndvi_data26_mean_sb)
 
-# Display plots with new names
+# Display plots
 print(results_ndvi_data26_mean_sb$plot_residuals_no_int_ndvi_data26_mean_sb)
 print(results_ndvi_data26_mean_sb$plot_residuals_int_ndvi_data26_mean_sb)
 print(results_ndvi_data26_mean_sb$plot_response_ndvi_data26_mean_sb)
+print(results_ndvi_data26_mean_sb$plot_qq_no_int_ndvi_data26_mean_sb)
+print(results_ndvi_data26_mean_sb$plot_qq_int_ndvi_data26_mean_sb)
 
 # Winter wheat results
 results_ndvi_data26_mean_ww <- reflectance26_analysis(ndvi_data26, 
@@ -831,14 +1216,16 @@ results_ndvi_data26_mean_ww <- reflectance26_analysis(ndvi_data26,
                                              identifier = "ww",
                                              index= "NDVI")
 
-# Access results for winter wheat
+#results for winter wheat
 print(results_ndvi_data26_mean_ww$anova_result_ndvi_data26_mean_ww)
 print(results_ndvi_data26_mean_ww$plot_residuals_no_int_ndvi_data26_mean_ww)
 print(results_ndvi_data26_mean_ww$plot_residuals_int_ndvi_data26_mean_ww)
 print(results_ndvi_data26_mean_ww$plot_response_ndvi_data26_mean_ww)
+print(results_ndvi_data26_mean_ww$plot_qq_no_int_ndvi_data26_mean_ww)
+print(results_ndvi_data26_mean_ww$plot_qq_int_ndvi_data26_mean_ww)
 
 
-# Run analysis for residual fertilised plot
+# analysis for residual fertilised plot
 results_ndvi_data26_residual_mean_ww <- reflectance26_analysis(ndvi_data26_residual, 
                                              response_var = "mean", 
                                              treatment_var = "Treatment",
@@ -862,6 +1249,270 @@ print(results_ndvi_data26_residual_mean_ww$anova_result_ndvi_data26_residual_mea
 print(results_ndvi_data26_residual_mean_ww$plot_residuals_no_int_ndvi_data26_residual_mean_ww)
 print(results_ndvi_data26_residual_mean_ww$plot_residuals_int_ndvi_data26_residual_mean_ww)
 print(results_ndvi_data26_residual_mean_ww$plot_response_ndvi_data26_residual_mean_ww)
+print(results_ndvi_data26_residual_mean_ww$plot_qq_no_int_ndvi_data26_residual_mean_ww)
+print(results_ndvi_data26_residual_mean_ww$plot_qq_int_ndvi_data26_residual_mean_ww)
+```
+
+#### Mean NDVI smallplot UAV
+
+```{r}
+ndvi_uav_field26 <- read_csv(here("data", "ndvi_uav_field26.csv"))
+ndvi_uav_field26_residual <- read_csv(here("data", "ndvi_uav_field26_residual.csv"))
+
+
+ndvi_uav_field26 <- ndvi_uav_field26 %>%
+  mutate(
+    # Convert numeric date directly to character then to Date
+    date = as.Date(sprintf("%08d", date), format = "%Y%m%d"),
+    Treatment = Treatment_2022,
+    Treatment = factor(Treatment)
+  )
+
+# Run analysis
+results_ndvi_field26_mean_ww <- reflectance26_analysis_uav(ndvi_uav_field26, 
+                                             response_var = "mean", 
+                                             treatment_var = "Treatment",
+                                             plot_id_var = "PLOT_ID",
+                                             block_var = "Block_a",
+                                             date_var = "date",
+                                             start_date = start_date_ww, 
+                                             end_date = end_date_ww,
+                                             identifier = "ww")
+
+
+# RESIDUAL 
+
+# Process data with simpler date conversion
+ndvi_uav_field26_residual <- ndvi_uav_field26_residual %>%
+  mutate(
+    # Convert numeric date directly to character then to Date
+    date = as.Date(sprintf("%08d", date), format = "%Y%m%d"),
+    Treatment = Treatment_2022,
+    Treatment = factor(Treatment)
+  )
+
+# Run analysis
+results_ndvi_field26_mean_ww_residual <- reflectance26_analysis_uav(ndvi_uav_field26_residual, 
+                                             response_var = "mean", 
+                                             treatment_var = "Treatment",
+                                             plot_id_var = "PLOT_ID",
+                                             block_var = "Block_a",
+                                             date_var = "date",
+                                             start_date = start_date_ww, 
+                                             end_date = end_date_ww,
+                                             identifier = "ww")
+# For regular UAV analysis
+print(results_ndvi_field26_mean_ww$plot_response_ndvi_uav_field26_mean_ww)
+print(results_ndvi_field26_mean_ww$plot_residuals_no_int_ndvi_uav_field26_mean_ww)
+print(results_ndvi_field26_mean_ww$plot_residuals_int_ndvi_uav_field26_mean_ww)
+print(results_ndvi_field26_mean_ww$anova_result_ndvi_uav_field26_mean_ww)
+print(results_ndvi_field26_mean_ww$plot_qq_no_int_ndvi_uav_field26_mean_ww)
+print(results_ndvi_field26_mean_ww$plot_qq_int_ndvi_uav_field26_mean_ww)
+
+# For residual UAV analysis
+print(results_ndvi_field26_mean_ww_residual$plot_response_ndvi_uav_field26_residual_mean_ww)
+print(results_ndvi_field26_mean_ww_residual$plot_residuals_no_int_ndvi_uav_field26_residual_mean_ww)
+print(results_ndvi_field26_mean_ww_residual$plot_residuals_int_ndvi_uav_field26_residual_mean_ww)
+print(results_ndvi_field26_mean_ww_residual$anova_result_ndvi_uav_field26_residual_mean_ww)
+print(results_ndvi_field26_mean_ww_residual$plot_qq_no_int_ndvi_uav_field26_residual_mean_ww)
+print(results_ndvi_field26_mean_ww_residual$plot_qq_int_ndvi_uav_field26_residual_mean_ww)
+```
+
+#### NDRE
+
+```{r}
+# Read data
+ndre_uav_field26 <- read_csv(here("data", "ndre_uav_field26.csv"))
+ndre_uav_field26_residual <- read_csv(here("data", "ndre_uav_field26_residual.csv"))
+
+ndre_uav_field26 <- ndre_uav_field26 %>%
+  mutate(
+    # Convert numeric date directly to character then to Date
+    date = as.Date(sprintf("%08d", date), format = "%Y%m%d"),
+    Treatment = Treatment_2022,
+    Treatment = factor(Treatment)
+  )
+
+# Run analysis
+results_ndre_field26_mean_ww <- reflectance26_analysis_uav(ndre_uav_field26, 
+                                             response_var = "mean", 
+                                             treatment_var = "Treatment",
+                                             plot_id_var = "PLOT_ID",
+                                             block_var = "Block_a",
+                                             date_var = "date",
+                                             start_date = start_date_ww, 
+                                             end_date = end_date_ww,
+                                             identifier = "ww")
+
+# RESIDUAL 
+# Process data with simpler date conversion
+ndre_uav_field26_residual <- ndre_uav_field26_residual %>%
+  mutate(
+    # Convert numeric date directly to character then to Date
+    date = as.Date(sprintf("%08d", date), format = "%Y%m%d"),
+    Treatment = Treatment_2022,
+    Treatment = factor(Treatment)
+  )
+
+# Run analysis
+results_ndre_field26_mean_ww_residual <- reflectance26_analysis_uav(ndre_uav_field26_residual, 
+                                             response_var = "mean", 
+                                             treatment_var = "Treatment",
+                                             plot_id_var = "PLOT_ID",
+                                             block_var = "Block_a",
+                                             date_var = "date",
+                                             start_date = start_date_ww, 
+                                             end_date = end_date_ww,
+                                             identifier = "ww")
+
+# For regular UAV analysis
+print(results_ndre_field26_mean_ww$plot_response_ndre_uav_field26_mean_ww)
+print(results_ndre_field26_mean_ww$plot_residuals_no_int_ndre_uav_field26_mean_ww)
+print(results_ndre_field26_mean_ww$plot_residuals_int_ndre_uav_field26_mean_ww)
+print(results_ndre_field26_mean_ww$anova_result_ndre_uav_field26_mean_ww)
+print(results_ndre_field26_mean_ww$plot_qq_no_int_ndre_uav_field26_mean_ww)
+print(results_ndre_field26_mean_ww$plot_qq_int_ndre_uav_field26_mean_ww)
+
+# For residual UAV analysis
+print(results_ndre_field26_mean_ww_residual$plot_response_ndre_uav_field26_residual_mean_ww)
+print(results_ndre_field26_mean_ww_residual$plot_residuals_no_int_ndre_uav_field26_residual_mean_ww)
+print(results_ndre_field26_mean_ww_residual$plot_residuals_int_ndre_uav_field26_residual_mean_ww)
+print(results_ndre_field26_mean_ww_residual$anova_result_ndre_uav_field26_residual_mean_ww)
+print(results_ndre_field26_mean_ww_residual$plot_qq_no_int_ndre_uav_field26_residual_mean_ww)
+print(results_ndre_field26_mean_ww_residual$plot_qq_int_ndre_uav_field26_residual_mean_ww)
+```
+
+## Comparing all fertilisers aggregated to analysing each fertiliser
+
+#### NDVI
+
+```{r}
+# Run analysis for spring barley (2021)
+results_ndvi_data26_mean_sb_agg <- reflectance26_analysis_aggregated(ndvi_data26, 
+                                             response_var = "mean", 
+                                             treatment_var = "Treatment_2021",
+                                             treatment_var_aggregated = "fertiliser_type",
+                                             plot_id_var = "PLOT_ID",
+                                             block_var = "Block_a",
+                                             date_var = "timestamp",
+                                             start_date = start_date_sb, 
+                                             end_date = end_date_sb,
+                                             identifier = "sb",
+                                             index = "NDVI")
+
+
+## Winter wheat results
+
+results_ndvi_data26_mean_ww_agg <- reflectance26_analysis_aggregated(ndvi_data26, 
+                                             response_var = "mean", 
+                                             treatment_var = "Treatment_2022",
+                                             treatment_var_aggregated = "fertiliser_type",
+                                             plot_id_var = "PLOT_ID",
+                                             block_var = "Block_a",
+                                             date_var = "timestamp",
+                                             start_date = start_date_ww, 
+                                             end_date = end_date_ww,
+                                             identifier = "ww",
+                                             index = "NDVI"
+                                             )
+
+
+
+# Run analysis for spring barley (2021)
+results_ndvi_data26_residual_mean_ww_agg <- reflectance26_analysis_aggregated(ndvi_data26_residual, 
+                                             response_var = "mean", 
+                                             treatment_var = "Treatment_2022",
+                                             treatment_var_aggregated = "fertiliser_type",
+                                             plot_id_var = "PLOT_ID",
+                                             block_var = "Block_a",
+                                             date_var = "timestamp",
+                                             start_date = start_date_wwres, 
+                                             end_date = end_date_wwres,
+                                             identifier = "ww", 
+                                             index= "NDVI")
+
+# Spring Barley prints
+print(results_ndvi_data26_mean_sb_agg$anova_result_ndvi_data26_mean_sb)
+print(results_ndvi_data26_mean_sb_agg$plot_residuals_no_int_ndvi_data26_mean_sb)
+print(results_ndvi_data26_mean_sb_agg$plot_residuals_int_ndvi_data26_mean_sb)
+print(results_ndvi_data26_mean_sb_agg$plot_qq_aggregated_ndvi_data26_mean_sb)
+print(results_ndvi_data26_mean_sb_agg$plot_qq_individual_ndvi_data26_mean_sb)
+
+# Winter Wheat prints
+print(results_ndvi_data26_mean_ww_agg$anova_result_ndvi_data26_mean_ww)
+print(results_ndvi_data26_mean_ww_agg$plot_residuals_no_int_ndvi_data26_mean_ww)
+print(results_ndvi_data26_mean_ww_agg$plot_residuals_int_ndvi_data26_mean_ww)
+print(results_ndvi_data26_mean_ww_agg$plot_qq_aggregated_ndvi_data26_mean_ww)
+print(results_ndvi_data26_mean_ww_agg$plot_qq_individual_ndvi_data26_mean_ww)
+
+# Residual analysis prints
+print(results_ndvi_data26_residual_mean_ww_agg$anova_result_ndvi_data26_residual_mean_ww)
+print(results_ndvi_data26_residual_mean_ww_agg$plot_residuals_no_int_ndvi_data26_residual_mean_ww)
+print(results_ndvi_data26_residual_mean_ww_agg$plot_residuals_int_ndvi_data26_residual_mean_ww)
+print(results_ndvi_data26_residual_mean_ww_agg$plot_qq_aggregated_ndvi_data26_residual_mean_ww)
+print(results_ndvi_data26_residual_mean_ww_agg$plot_qq_individual_ndvi_data26_residual_mean_ww)
+print(results_ndvi_data26_mean_sb)
+```
+
+#### NDRE
+
+```{r}
+# Analysis for spring barley (2021)
+results_ndre_data26_mean_sb_agg <- reflectance26_analysis_aggregated(ndre_data26, 
+                                             response_var = "mean", 
+                                             treatment_var = "Treatment_2021",
+                                             treatment_var_aggregated = "fertiliser_type",
+                                             plot_id_var = "PLOT_ID",
+                                             block_var = "Block_a",
+                                             date_var = "timestamp",
+                                             start_date = start_date_sb, 
+                                             end_date = end_date_sb,
+                                             identifier = "sb",
+                                             index = "NDRE")
+## Winter wheat results
+results_ndre_data26_mean_ww_agg <- reflectance26_analysis_aggregated(ndre_data26, 
+                                             response_var = "mean", 
+                                             treatment_var = "Treatment_2022",
+                                             treatment_var_aggregated = "fertiliser_type",
+                                             plot_id_var = "PLOT_ID",
+                                             block_var = "Block_a",
+                                             date_var = "timestamp",
+                                             start_date = start_date_ww, 
+                                             end_date = end_date_ww,
+                                             identifier = "ww",
+                                             index = "NDRE"
+                                             )
+# Analysis for residual
+results_ndre_data26_residual_mean_ww_agg <- reflectance26_analysis_aggregated(ndre_data26_residual, 
+                                             response_var = "mean", 
+                                             treatment_var = "Treatment_2022",
+                                             treatment_var_aggregated = "fertiliser_type",
+                                             plot_id_var = "PLOT_ID",
+                                             block_var = "Block_a",
+                                             date_var = "timestamp",
+                                             start_date = start_date_wwres, 
+                                             end_date = end_date_wwres,
+                                             identifier = "ww", 
+                                             index= "NDRE")
+# Spring Barley prints
+print(results_ndre_data26_mean_sb_agg$anova_result_ndre_data26_mean_sb)
+print(results_ndre_data26_mean_sb_agg$plot_residuals_no_int_ndre_data26_mean_sb)
+print(results_ndre_data26_mean_sb_agg$plot_residuals_int_ndre_data26_mean_sb)
+print(results_ndre_data26_mean_sb_agg$plot_qq_aggregated_ndre_data26_mean_sb)
+print(results_ndre_data26_mean_sb_agg$plot_qq_individual_ndre_data26_mean_sb)
+
+# Winter Wheat prints
+print(results_ndre_data26_mean_ww_agg$anova_result_ndre_data26_mean_ww)
+print(results_ndre_data26_mean_ww_agg$plot_residuals_no_int_ndre_data26_mean_ww)
+print(results_ndre_data26_mean_ww_agg$plot_residuals_int_ndre_data26_mean_ww)
+print(results_ndre_data26_mean_ww_agg$plot_qq_aggregated_ndre_data26_mean_ww)
+print(results_ndre_data26_mean_ww_agg$plot_qq_individual_ndre_data26_mean_ww)
+
+# Residual analysis prints
+print(results_ndre_data26_residual_mean_ww_agg$anova_result_ndre_data26_residual_mean_ww)
+print(results_ndre_data26_residual_mean_ww_agg$plot_residuals_int_ndre_data26_residual_mean_ww)
+print(results_ndre_data26_residual_mean_ww_agg$plot_qq_aggregated_ndre_data26_residual_mean_ww)
+print(results_ndre_data26_residual_mean_ww_agg$plot_qq_individual_ndre_data26_residual_mean_ww)
 ```
 
 ## CV
@@ -889,6 +1540,8 @@ print(results_ndre_data25_cv_sb$anova_result_ndre_data25_cv_sb)
 print(results_ndre_data25_cv_sb$plot_residuals_no_int_ndre_data25_cv_sb)
 print(results_ndre_data25_cv_sb$plot_residuals_int_ndre_data25_cv_sb)
 print(results_ndre_data25_cv_sb$plot_response_ndre_data25_cv_sb)
+print(results_ndre_data25_cv_sb$plot_qq_no_int_ndre_data25_cv_sb)
+print(results_ndre_data25_cv_sb$plot_qq_int_ndre_data25_cv_sb)
 
 
 # Run analysis for spring Winter wheat (2022)
@@ -909,6 +1562,8 @@ print(results_ndre_data25_cv_ww$anova_result_ndre_data25_cv_ww)
 print(results_ndre_data25_cv_ww$plot_residuals_no_int_ndre_data25_cv_ww)
 print(results_ndre_data25_cv_ww$plot_residuals_int_ndre_data25_cv_ww)
 print(results_ndre_data25_cv_ww$plot_response_ndre_data25_cv_ww)
+print(results_ndre_data25_cv_ww$plot_qq_no_int_ndre_data25_cv_ww)
+print(results_ndre_data25_cv_ww$plot_qq_int_ndre_data25_cv_ww)
 ```
 
 #### CV NDVI sat Large-plot trial
@@ -934,6 +1589,8 @@ print(results_ndvi_data25_cv_sb$anova_result_ndvi_data25_cv_sb)
 print(results_ndvi_data25_cv_sb$plot_residuals_no_int_ndvi_data25_cv_sb)
 print(results_ndvi_data25_cv_sb$plot_residuals_int_ndvi_data25_cv_sb)
 print(results_ndvi_data25_cv_sb$plot_response_ndvi_data25_cv_sb)
+print(results_ndvi_data25_cv_sb$plot_qq_no_int_ndvi_data25_cv_sb)
+print(results_ndvi_data25_cv_sb$plot_qq_int_ndvi_data25_cv_sb)
 
 
 # Run analysis for spring Winter wheat (2022)
@@ -954,6 +1611,8 @@ print(results_ndvi_data25_cv_ww$anova_result_ndvi_data25_cv_ww)
 print(results_ndvi_data25_cv_ww$plot_residuals_no_int_ndvi_data25_cv_ww)
 print(results_ndvi_data25_cv_ww$plot_residuals_int_ndvi_data25_cv_ww)
 print(results_ndvi_data25_cv_ww$plot_response_ndvi_data25_cv_ww)
+print(results_ndvi_data25_cv_ww$plot_qq_no_int_ndvi_data25_cv_ww)
+print(results_ndvi_data25_cv_ww$plot_qq_int_ndvi_data25_cv_ww)
 ```
 
 #### CV NDRE UAV Large-plot trial
@@ -980,6 +1639,8 @@ print(results_ndre_data25_uav_cv_ww$plot_residuals_no_int_ndre_data25_uav_cv_ww)
 print(results_ndre_data25_uav_cv_ww$plot_residuals_int_ndre_data25_uav_cv_ww)
 # Response plot
 print(results_ndre_data25_uav_cv_ww$plot_response_ndre_data25_uav_cv_ww)
+print(results_ndre_data25_uav_cv_ww$plot_qq_no_int_ndre_data25_uav_cv_ww)
+print(results_ndre_data25_uav_cv_ww$plot_qq_int_ndre_data25_uav_cv_ww)
 
 # ANOVA results
 print(results_ndre_data25_uav_cv_ww$anova_result_ndre_data25_uav_cv_ww)
@@ -1003,13 +1664,199 @@ results_ndvi_data25_uav_cv_ww <- lme_analysis_lp_uav(ndvi_data25_uav,
 
 # Residuals plot without interaction
 print(results_ndvi_data25_uav_cv_ww$plot_residuals_no_int_ndvi_data25_uav_cv_ww)
-
-# Residuals plot with interaction
 print(results_ndvi_data25_uav_cv_ww$plot_residuals_int_ndvi_data25_uav_cv_ww)
-# Response plot
 print(results_ndvi_data25_uav_cv_ww$plot_response_ndvi_data25_uav_cv_ww)
-
-# ANOVA results
+print(results_ndvi_data25_uav_cv_ww$plot_qq_no_int_ndvi_data25_uav_cv_ww)
+print(results_ndvi_data25_uav_cv_ww$plot_qq_int_ndvi_data25_uav_cv_ww)
 print(results_ndvi_data25_uav_cv_ww$anova_result_ndvi_data25_uav_cv_ww)
 
+```
+
+```{r}
+# Define the base path
+base_path <- "/Users/petervingum/Library/CloudStorage/OneDrive-UniversityofCopenhagen/Speciale/LaTeX_Thesis/figures"
+
+# # Field 26 NDVI and NDRE mean analysis - Spring Barley
+# ggsave(paste0(base_path, "ndre_data26_mean_sb_no_int_qq.pdf"), 
+#        results_ndre_data26_mean_sb$plot_qq_no_int_ndre_data26_mean_sb,
+#        width = 10, height = 6)
+# ggsave(paste0(base_path, "ndre_data26_mean_sb_int_qq.pdf"), 
+#        results_ndre_data26_mean_sb$plot_qq_int_ndre_data26_mean_sb,
+#        width = 10, height = 6)
+# ggsave(paste0(base_path, "ndvi_data26_mean_sb_no_int_qq.pdf"), 
+#        results_ndvi_data26_mean_sb$plot_qq_no_int_ndvi_data26_mean_sb,
+#        width = 10, height = 6)
+# ggsave(paste0(base_path, "ndvi_data26_mean_sb_int_qq.pdf"), 
+#        results_ndvi_data26_mean_sb$plot_qq_int_ndvi_data26_mean_sb,
+#        width = 10, height = 6)
+# 
+# # Field 26 NDVI and NDRE mean analysis - Winter Wheat
+# ggsave(paste0(base_path, "ndvi_data26_mean_ww_no_int_qq.pdf"), 
+#        results_ndvi_data26_mean_ww$plot_qq_no_int_ndvi_data26_mean_ww,
+#        width = 10, height = 6)
+# ggsave(paste0(base_path, "ndvi_data26_mean_ww_int_qq.pdf"), 
+#        results_ndvi_data26_mean_ww$plot_qq_int_ndvi_data26_mean_ww,
+#        width = 10, height = 6)
+# ggsave(paste0(base_path, "ndre_data26_mean_ww_no_int_qq.pdf"), 
+#        results_ndre_data26_mean_ww$plot_qq_no_int_ndre_data26_mean_ww,
+#        width = 10, height = 6)
+# ggsave(paste0(base_path, "ndre_data26_mean_ww_int_qq.pdf"), 
+#        results_ndre_data26_mean_ww$plot_qq_int_ndre_data26_mean_ww,
+#        width = 10, height = 6)
+# 
+# # Field 26 NDVI and NDRE residual mean analysis - Winter Wheat
+# ggsave(paste0(base_path, "ndvi_data26_residual_mean_ww_no_int_qq.pdf"), 
+#        results_ndvi_data26_residual_mean_ww$plot_qq_no_int_ndvi_data26_residual_mean_ww,
+#        width = 10, height = 6)
+# ggsave(paste0(base_path, "ndvi_data26_residual_mean_ww_int_qq.pdf"), 
+#        results_ndvi_data26_residual_mean_ww$plot_qq_int_ndvi_data26_residual_mean_ww,
+#        width = 10, height = 6)
+# 
+# # Field 25 NDVI and NDRE CV analysis - Spring Barley
+# ggsave(paste0(base_path, "ndvi_data25_cv_sb_no_int_qq.pdf"), 
+#        results_ndvi_data25_cv_sb$plot_qq_no_int_ndvi_data25_cv_sb,
+#        width = 10, height = 6)
+# ggsave(paste0(base_path, "ndvi_data25_cv_sb_int_qq.pdf"), 
+#        results_ndvi_data25_cv_sb$plot_qq_int_ndvi_data25_cv_sb,
+#        width = 10, height = 6)
+# ggsave(paste0(base_path, "ndre_data25_cv_sb_no_int_qq.pdf"), 
+#        results_ndre_data25_cv_sb$plot_qq_no_int_ndre_data25_cv_sb,
+#        width = 10, height = 6)
+# ggsave(paste0(base_path, "ndre_data25_cv_sb_int_qq.pdf"), 
+#        results_ndre_data25_cv_sb$plot_qq_int_ndre_data25_cv_sb,
+#        width = 10, height = 6)
+# 
+# # Field 25 NDVI and NDRE CV analysis - Winter Wheat
+# ggsave(paste0(base_path, "ndvi_data25_cv_ww_no_int_qq.pdf"), 
+#        results_ndvi_data25_cv_ww$plot_qq_no_int_ndvi_data25_cv_ww,
+#        width = 10, height = 6)
+# ggsave(paste0(base_path, "ndvi_data25_cv_ww_int_qq.pdf"), 
+#        results_ndvi_data25_cv_ww$plot_qq_int_ndvi_data25_cv_ww,
+#        width = 10, height = 6)
+# ggsave(paste0(base_path, "ndre_data25_cv_ww_no_int_qq.pdf"), 
+#        results_ndre_data25_cv_ww$plot_qq_no_int_ndre_data25_cv_ww,
+#        width = 10, height = 6)
+# ggsave(paste0(base_path, "ndre_data25_cv_ww_int_qq.pdf"), 
+#        results_ndre_data25_cv_ww$plot_qq_int_ndre_data25_cv_ww,
+#        width = 10, height = 6)
+# 
+# # UAV analysis - NDVI and NDRE CV Winter Wheat
+# ggsave(paste0(base_path, "ndvi_data25_uav_cv_ww_no_int_qq.pdf"), 
+#        results_ndvi_data25_uav_cv_ww$plot_qq_no_int_ndvi_data25_uav_cv_ww,
+#        width = 10, height = 6)
+# ggsave(paste0(base_path, "ndvi_data25_uav_cv_ww_int_qq.pdf"), 
+#        results_ndvi_data25_uav_cv_ww$plot_qq_int_ndvi_data25_uav_cv_ww,
+#        width = 10, height = 6)
+# ggsave(paste0(base_path, "ndre_data25_uav_cv_ww_no_int_qq.pdf"), 
+#        results_ndre_data25_uav_cv_ww$plot_qq_no_int_ndre_data25_uav_cv_ww,
+#        width = 10, height = 6)
+# ggsave(paste0(base_path, "ndre_data25_uav_cv_ww_int_qq.pdf"), 
+#        results_ndre_data25_uav_cv_ww$plot_qq_int_ndre_data25_uav_cv_ww,
+#        width = 10, height = 6)
+# # Field 25 NDVI and NDRE mean analysis - Winter Wheat
+# ggsave(paste0(base_path, "ndre_data25_mean_ww_no_int_qq.pdf"), 
+#        results_ndre_data25_mean_ww$plot_qq_no_int_ndre_data25_mean_ww,
+#        width = 10, height = 6)
+# ggsave(paste0(base_path, "ndre_data25_mean_ww_int_qq.pdf"), 
+#        results_ndre_data25_mean_ww$plot_qq_int_ndre_data25_mean_ww,
+#        width = 10, height = 6)
+# 
+# ggsave(paste0(base_path, "ndvi_data25_mean_ww_no_int_qq.pdf"), 
+#        results_ndvi_data25_mean_ww$plot_qq_no_int_ndvi_data25_mean_ww,
+#        width = 10, height = 6)
+# ggsave(paste0(base_path, "ndvi_data25_mean_ww_int_qq.pdf"), 
+#        results_ndvi_data25_mean_ww$plot_qq_int_ndvi_data25_mean_ww,
+#        width = 10, height = 6)
+# 
+# # Field 25 UAV NDVI and NDRE mean analysis - Winter Wheat
+# ggsave(paste0(base_path, "ndre_data25_uav_mean_ww_no_int_qq.pdf"), 
+#        results_ndre_data25_uav_mean_ww$plot_qq_no_int_ndre_data25_uav_mean_ww,
+#        width = 10, height = 6)
+# ggsave(paste0(base_path, "ndre_data25_uav_mean_ww_int_qq.pdf"), 
+#        results_ndre_data25_uav_mean_ww$plot_qq_int_ndre_data25_uav_mean_ww,
+#        width = 10, height = 6)
+# 
+# ggsave(paste0(base_path, "ndvi_data25_uav_mean_ww_no_int_qq.pdf"), 
+#        results_ndvi_data25_uav_mean_ww$plot_qq_no_int_ndvi_data25_uav_mean_ww,
+#        width = 10, height = 6)
+# ggsave(paste0(base_path, "ndvi_data25_uav_mean_ww_int_qq.pdf"), 
+#        results_ndvi_data25_uav_mean_ww$plot_qq_int_ndvi_data25_uav_mean_ww,
+#        width = 10, height = 6)
+
+# Save Spring Barley QQ plots
+# ggsave(paste0(base_path, "ndvi_data26_mean_sb_agg_qq.pdf"), 
+#        results_ndvi_data26_mean_sb_agg$plot_qq_aggregated_ndvi_data26_mean_sb,
+#        width = 10, height = 6)
+# ggsave(paste0(base_path, "ndvi_data26_mean_sb_ind_qq.pdf"), 
+#        results_ndvi_data26_mean_sb_agg$plot_qq_individual_ndvi_data26_mean_sb,
+#        width = 10, height = 6)
+# 
+# # Save Winter Wheat QQ plots
+# ggsave(paste0(base_path, "ndvi_data26_mean_ww_agg_qq.pdf"), 
+#        results_ndvi_data26_mean_ww_agg$plot_qq_aggregated_ndvi_data26_mean_ww,
+#        width = 10, height = 6)
+# ggsave(paste0(base_path, "ndvi_data26_mean_ww_ind_qq.pdf"), 
+#        results_ndvi_data26_mean_ww_agg$plot_qq_individual_ndvi_data26_mean_ww,
+#        width = 10, height = 6)
+# 
+# # Save Residual analysis QQ plots
+# ggsave(paste0(base_path, "ndvi_data26_residual_mean_ww_agg_qq.pdf"), 
+#        results_ndvi_data26_residual_mean_ww_agg$plot_qq_aggregated_ndvi_data26_residual_mean_ww,
+#        width = 10, height = 6)
+# ggsave(paste0(base_path, "ndvi_data26_residual_mean_ww_ind_qq.pdf"), 
+#        results_ndvi_data26_residual_mean_ww_agg$plot_qq_individual_ndvi_data26_residual_mean_ww,
+#        width = 10, height = 6)
+# 
+# # Save Spring Barley QQ plots
+# ggsave(paste0(base_path, "ndre_data26_mean_sb_agg_qq.pdf"), 
+#        results_ndre_data26_mean_sb_agg$plot_qq_aggregated_ndre_data26_mean_sb,
+#        width = 10, height = 6)
+# ggsave(paste0(base_path, "ndre_data26_mean_sb_ind_qq.pdf"), 
+#        results_ndre_data26_mean_sb_agg$plot_qq_individual_ndre_data26_mean_sb,
+#        width = 10, height = 6)
+# 
+# # Save Winter Wheat QQ plots
+# ggsave(paste0(base_path, "ndre_data26_mean_ww_agg_qq.pdf"), 
+#        results_ndre_data26_mean_ww_agg$plot_qq_aggregated_ndre_data26_mean_ww,
+#        width = 10, height = 6)
+# ggsave(paste0(base_path, "ndre_data26_mean_ww_ind_qq.pdf"), 
+#        results_ndre_data26_mean_ww_agg$plot_qq_individual_ndre_data26_mean_ww,
+#        width = 10, height = 6)
+# 
+# # Save Residual analysis QQ plots
+# ggsave(paste0(base_path, "ndre_data26_residual_mean_ww_agg_qq.pdf"), 
+#        results_ndre_data26_residual_mean_ww_agg$plot_qq_aggregated_ndre_data26_residual_mean_ww,
+#        width = 10, height = 6)
+# ggsave(paste0(base_path, "ndre_data26_residual_mean_ww_ind_qq.pdf"), 
+#        results_ndre_data26_residual_mean_ww_agg$plot_qq_individual_ndre_data26_residual_mean_ww,
+#        width = 10, height = 6)
+# Save regular UAV QQ plots
+# ggsave(paste0(base_path, "ndvi_uav_field26_mean_ww_no_int_qq.pdf"), 
+#        results_ndvi_field26_mean_ww$plot_qq_no_int_ndvi_uav_field26_mean_ww,
+#        width = 10, height = 6)
+# ggsave(paste0(base_path, "ndvi_uav_field26_mean_ww_int_qq.pdf"), 
+#        results_ndvi_field26_mean_ww$plot_qq_int_ndvi_uav_field26_mean_ww,
+#        width = 10, height = 6)
+# 
+# # Save residual UAV QQ plots
+# ggsave(paste0(base_path, "ndvi_uav_field26_residual_mean_ww_no_int_qq.pdf"), 
+#        results_ndvi_field26_mean_ww_residual$plot_qq_no_int_ndvi_uav_field26_residual_mean_ww,
+#        width = 10, height = 6)
+# ggsave(paste0(base_path, "ndvi_uav_field26_residual_mean_ww_int_qq.pdf"), 
+#        results_ndvi_field26_mean_ww_residual$plot_qq_int_ndvi_uav_field26_residual_mean_ww,
+#        width = 10, height = 6)
+# ggsave(paste0(base_path, "ndre_uav_field26_mean_ww_no_int_qq.pdf"), 
+#        results_ndre_field26_mean_ww$plot_qq_no_int_ndre_uav_field26_mean_ww,
+#        width = 10, height = 6)
+# ggsave(paste0(base_path, "ndre_uav_field26_mean_ww_int_qq.pdf"), 
+#        results_ndre_field26_mean_ww$plot_qq_int_ndre_uav_field26_mean_ww,
+#        width = 10, height = 6)
+# 
+# # Save residual UAV QQ plots
+# ggsave(paste0(base_path, "ndre_uav_field26_residual_mean_ww_no_int_qq.pdf"), 
+#        results_ndre_field26_mean_ww_residual$plot_qq_no_int_ndre_uav_field26_residual_mean_ww,
+#        width = 10, height = 6)
+# ggsave(paste0(base_path, "ndre_uav_field26_residual_mean_ww_int_qq.pdf"), 
+#        results_ndre_field26_mean_ww_residual$plot_qq_int_ndre_uav_field26_residual_mean_ww,
+#        width = 10, height = 6)
 ```
