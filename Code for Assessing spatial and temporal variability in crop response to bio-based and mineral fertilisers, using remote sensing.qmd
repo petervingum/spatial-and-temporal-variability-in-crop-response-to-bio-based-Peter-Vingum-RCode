@@ -47,7 +47,7 @@ here::i_am("Code for Assessing spatial and temporal variability in crop response
 ### Setting theme for plots
 
 ```{r}
-my_theme <- theme_update(
+my_theme <- theme_minimal() + theme_update(
         axis.title = element_text(size = 18),
         axis.text = element_text(size = 16),
         plot.title = element_text(size = 20),
@@ -55,13 +55,41 @@ my_theme <- theme_update(
         legend.text = element_text(size = 16),
         strip.text = element_text(size = 16)
     )
+theme_set(my_theme)
 
 # Color palette
-treatment_colors_lp <- c("OG2, Residual fertiliser" = "#1f77b4",  
-                     "OG2" = "#ff7f0e",  
-                     "Mineral" = "#2ca02c", 
-                     "Control" = "#d62728") 
-#Treatment labels
+# treatment_colors <- c("OG2, Residual fertiliser" = "#1f77b4",
+#                      "OG2" = "#ff7f0e",
+#                      "Mineral" = "#2ca02c",
+#                      "Control" = "#d62728")
+# treatment_colors <- c("OG2, Residual fertiliser" = "#1f77b4",  # Blue
+#                      "OG2" = "#ff7f0e",  # Orange
+#                      "Mineral" = "#2ca02c",  # Green
+#                      "Control" = "#d62728")  # Red
+treatment_colors <- c(
+  "OG2, Residual fertiliser" = "#1f77b4",
+  "OG2" = "#ff7f0e",
+  "Mineral" = "#2ca02c",
+  "Control" = "#d62728",
+  "REF_1" = "#1f77b4",     # Blue
+  "REF_2" = "#7f7f7f",     # Gray
+  "REF_3" = "#2ca02c",     # Green (original Mineral color)
+  "REF_4" = "#9467bd",     # Purple
+  "BA6" = "#8c564b",       # Brown
+  "BIO" = "#e377c2",       # Pink
+  "BVC" = "#bcbd22",       # Olive
+  "ECO" = "#17becf",       # Cyan
+  "FEK" = "#aec7e8",       # Light blue
+  "MO13" = "#ffbb78",      # Light orange
+  "PCW" = "#98df8a",       # Light green
+  "SDG" = "#ff9896",       # Light red
+  "137 kg N/ha*" = "#c5b0d5", # Light purple
+  "PAL" = "#c49c94", # Light brown
+  "bbf" = "blue",
+  "control" = "#d62728",
+  "mineral" = "#2ca02c"
+)
+#Treatment labels largeplot
 treatment_labels_lp <- c(  "OG2_residual" = "OG2, Residual fertiliser",
   "OG2" = "OG2",
   "MIN" = "Mineral",
@@ -101,7 +129,14 @@ end_date_ww = as.Date("2022-08-25")
 ### Loading data
 
 ```{r}
-
+ndre_data25 <- read_csv(here("data", "ndre_data25.csv"))
+ndvi_data25 <- read_csv(here("data", "ndvi_data25.csv"))
+ndre_data25_uav <- read_csv(here("data", "ndre_uav_field25.csv"))
+ndvi_data25_uav <- read_csv(here("data", "ndvi_uav_field25.csv"))
+ndvi_data26 <- read_csv(here("data", "ndvi_data26.csv")) 
+ndvi_data26_residual <- read_csv(here("data", "ndvi_data26_residual.csv"))
+ndre_data26 <- read_csv(here("data", "ndre_data26.csv")) 
+ndre_data26_residual <- read_csv(here("data", "ndre_data26_residual.csv"))
 ```
 
 ## Functions for analysis
@@ -125,21 +160,14 @@ lme_analysis_lp <- function(data, response_var, treatment_var = "Treatment", plo
   
 # Recode treatment factor levels
   data[[treatment_var]] <- factor(data[[treatment_var]], 
-                                 levels = names(treatment_labels),
-                                 labels = treatment_labels)
+                                 levels = names(treatment_labels_lp),
+                                 labels = treatment_labels_lp)
   
   #Using the dates from above for analysis
   subset_data <- subset(data, timestamp >= start_date & timestamp <= end_date)
   
   #We need a numeric variable for the timedata for the corAR1 argument
   subset_data$timeSinceStart <- as.numeric(subset_data$Date - min(subset_data$Date))
-  
-  # Print information with dynamic naming
-  # cat(paste0("Initial data dimensions for ", name_prefix, ": ", paste(dim(data), collapse = " x "), "\n"))
-  # cat(paste0("Date range for ", name_prefix, ": ", start_date, " to ", end_date, "\n"))
-  # cat(paste0("Date variable class for ", name_prefix, ": ", class(data[[date_var]]), "\n"))
-  # cat(paste0("Date variable range for ", name_prefix, ": ", min(data[[date_var]]), " to ", max(data[[date_var]]), "\n"))
-  # cat(paste0("Dimensions of subset data for ", name_prefix, ": ", paste(dim(subset_data), collapse = " x "), "\n"))
   
   # Identifying variables for analysis 
   fixed_formula <- as.formula(paste(response_var, "~", treatment_var, "*DateFactor"))
@@ -161,12 +189,6 @@ lme_analysis_lp <- function(data, response_var, treatment_var = "Treatment", plo
   # Comparison of models
   anova_result <- anova(mod_int, mod_no_int)
   
-  # Print formulas with dynamic naming
-  # cat(paste0("\nFormulas for ", name_prefix, ":\n"))
-  # cat(paste0("Fixed effects (with interaction): ", deparse(fixed_formula), "\n"))
-  # cat(paste0("Random effects: ", deparse(random_formula), "\n"))
-  # cat(paste0("Correlation structure: ", deparse(correlation_formula), "\n"))
-  
   # Plotting
   #Residualplot no int
   plot1 <- ggplot(subset_data, aes(x = timeSinceStart, 
@@ -174,7 +196,7 @@ lme_analysis_lp <- function(data, response_var, treatment_var = "Treatment", plo
                                    col = .data[[treatment_var]])) +
     geom_point() +
     geom_smooth() +
-    scale_color_manual(values = treatment_colors_lp) +
+    scale_color_manual(values = treatment_colors) +
     labs(x = "Time since start", y = "Residuals", col = "Treatment", 
          title = paste(name_prefix, "No interaction between Treatment and time,", start_date, "to", end_date))
   
@@ -184,7 +206,7 @@ lme_analysis_lp <- function(data, response_var, treatment_var = "Treatment", plo
                                    col = .data[[treatment_var]])) +
     geom_point() +
     geom_smooth() +
-    scale_color_manual(values = treatment_colors_lp) +
+    scale_color_manual(values = treatment_colors) +
     labs(x = "Time since start", y = "Residuals", col = "Treatment", 
          title = paste(name_prefix, "Interaction between Treatment and time,", start_date, "to", end_date))
   
@@ -194,7 +216,7 @@ lme_analysis_lp <- function(data, response_var, treatment_var = "Treatment", plo
                                    col = .data[[treatment_var]])) +
     geom_point() +
     geom_smooth(span = 0.4) +
-    scale_color_manual(values = treatment_colors_lp) +
+    scale_color_manual(values = treatment_colors) +
     labs(x = "Date", y = response_var, col = "Treatment", 
          title = paste(plottitle))
   
@@ -223,13 +245,314 @@ lme_analysis_lp <- function(data, response_var, treatment_var = "Treatment", plo
 
 ```
 
-## Running functions
+### Large plot trial - UAV mean and CV
 
 ```{r}
-ndre_data25 <- read.csv("/Users/petervingum/Library/CloudStorage/OneDrive-UniversityofCopenhagen/Speciale/lex4bio/ndre_data25.csv")
+lme_analysis_lp_uav <- function(data, response_var, treatment_var = "Treatment", plot_id_var = "PLOT_ID", 
+                         date_var = "date", start_date, end_date, identifier, plottitle) {
+  
+  # Get the name of the data frame
+  data_name <- deparse(substitute(data))
+  
+  # Create a prefix for naming, including the identifier
+  name_prefix <- paste0(data_name, "_", response_var, "_", identifier)
+  
+  # Data preprocessing with explicit NA handling
+  data <- data %>%
+    mutate(
+      timestamp = as.Date(!!sym(date_var)),
+      Date = timestamp,
+      DateFactor = as.factor(timestamp)
+    ) %>%
+    # Filter data for date range
+    filter(timestamp >= start_date, timestamp <= end_date) %>%
+    # Calculate timeSinceStart after filtering
+    group_by(!!sym(plot_id_var)) %>%
+    mutate(
+      timeSinceStart = as.numeric(timestamp - min(timestamp))
+    ) %>%
+    ungroup() #%>%
+  # Create formulas
+  fixed_formula <- as.formula(paste(response_var, "~", treatment_var, "*DateFactor"))
+  random_formula <- as.formula(paste("~1|", plot_id_var))
+  correlation_formula <- as.formula(paste("~timeSinceStart|", plot_id_var))
+  
+  mod_int <-
+    lme(fixed_formula, 
+        random = random_formula, 
+        correlation = corAR1(form = correlation_formula), 
+        data = data, 
+        method = "ML",
+        na.action = na.omit)
+  
+    mod_no_int <- lme(update(fixed_formula, . ~ . - Treatment:DateFactor), 
+        random = random_formula, 
+        correlation = corAR1(form = correlation_formula), 
+        data = data, 
+        method = "ML",
+        na.action = na.omit,
+        control = lmeControl(msMaxIter = 2000, msMaxEval = 2000, returnObject=TRUE))
+  
+  # Create plots with the filtered data
+  plot1 <- ggplot(data, aes(x = timeSinceStart, 
+                           y = residuals(mod_no_int, type = "normalized"),
+                           col = !!sym(treatment_var))) +
+    geom_point() +
+    geom_smooth() +
+    scale_color_manual(values = treatment_colors) +
+    labs(x = "Time since start (days)", y = "Residuals", col = "Treatment")
+  
+  plot2 <- ggplot(data, aes(x = timeSinceStart, 
+                           y = residuals(mod_int, type = "normalized"),
+                           col = !!sym(treatment_var))) +
+    geom_point() +
+    geom_smooth() +
+    scale_color_manual(values = treatment_colors) +
+    labs(x = "Time since start (days)", y = "Residuals", col = "Treatment")
+  
+  #Finding means
+  mean_data <- data %>%
+    group_by(Date, !!sym(treatment_var)) %>%
+    summarize(
+      mean_response = mean(!!sym(response_var), na.rm = TRUE),
+      .groups = 'drop'
+    )
+  
+  # Using lines through means instead of smooth
+  plot3 <- ggplot() +
+    geom_point(data = data, 
+              aes(x = Date, 
+                  y = !!sym(response_var),
+                  color = !!sym(treatment_var))) +
+    geom_line(data = mean_data,
+             aes(x = Date,
+                 y = mean_response,
+                 color = !!sym(treatment_var)),
+             linewidth = 1) +
+    scale_color_manual(values = treatment_colors) +
+    labs(x = "Date", y = response_var, col = "Treatment", 
+         title = plottitle)
+  
+  # Create named list for results
+  results <- list(
+    model_interaction = mod_int,
+    model_no_interaction = mod_no_int,
+    anova_result = anova(mod_int, mod_no_int),
+    plot_residuals_no_int = plot1,
+    plot_residuals_int = plot2,
+    plot_response = plot3
+  )
+  
+  # Rename the elements in the list
+  names(results) <- c(
+    paste0("mod_int_", name_prefix),
+    paste0("mod_no_int_", name_prefix),
+    paste0("anova_result_", name_prefix),
+    paste0("plot_residuals_no_int_", name_prefix),
+    paste0("plot_residuals_int_", name_prefix),
+    paste0("plot_response_", name_prefix)
+  )
+  
+  return(results)
+}
+```
 
+### Small plot trial sat mean function splitting plot in 3
+
+```{r}
+reflectance26_analysis <- function(data, response_var, treatment_var, 
+                                   plot_id_var, block_var,
+                                   date_var, start_date, end_date, identifier, index) {
+  
+  # Name DF
+  data_name <- deparse(substitute(data))
+  
+  # Automating naming
+  name_prefix <- paste0(data_name, "_", response_var, "_", identifier)
+  
+  # Transform data
+  data <- transform(data,
+                    timestamp = as.Date(data[[date_var]]),
+                    Date = ymd(data[[date_var]]),
+                    DateFactor = as.factor(data[[date_var]]),
+                    Treatment = as.factor(data[[treatment_var]]))
+  
+  data$timeSinceStart <- as.numeric(data$Date - min(data$Date))
+   
+  # Subset data
+  subset_data <- subset(data, timestamp >= start_date & timestamp <= end_date)
+  # ## Comment out this part if the model cannot fit and you want to see the plots- from here
+  # Create formulas
+  fixed_formula_int <- as.formula(paste(response_var, "~", treatment_var, "* DateFactor"))
+  fixed_formula_no_int <- as.formula(paste(response_var, "~", treatment_var, "+ DateFactor"))
+  random_formula <- as.formula(paste("~ 1 |", block_var, "/", plot_id_var))
+  correlation_formula <- as.formula(paste("~ timeSinceStart |", block_var, "/", plot_id_var))
+
+  # Fit models
+  mod_int <- lme(fixed_formula_int,
+                 random = random_formula,
+                 correlation = corAR1(form = correlation_formula),
+                 data = subset_data, method = "ML", control = lmeControl(
+  maxIter = 1000,
+  msMaxIter = 1000,
+  opt = "optim",
+  tolerance = 1e-4))
+
+  mod_no_int <- lme(fixed_formula_no_int,
+                    random = random_formula,
+                    correlation = corAR1(form = correlation_formula),
+                    data = subset_data, method = "ML", control = lmeControl(
+  maxIter = 1000,
+  msMaxIter = 1000,
+  opt = "optim",
+  tolerance = 1e-4))
+
+  # ANOVA comparison
+  anova_result <- anova(mod_int, mod_no_int)
+
+
+  # Plotting
+  plot1 <- ggplot(subset_data, aes(x = timeSinceStart,
+                                   y = residuals(mod_no_int, type = "normalized"),
+                                   col = .data[[treatment_var]])) +
+    geom_point() +
+    geom_smooth(se=FALSE) +
+    scale_color_manual(values = treatment_colors) +
+    labs(x = "Time since start", y = "Residuals", col = "Treatment",
+         title = paste(name_prefix, "No interaction between Treatment and time,", start_date, "to", end_date))
+
+plot2 <- ggplot(subset_data, aes(x = timeSinceStart,
+                                   y = residuals(mod_int, type = "normalized"),
+                                   col = .data[[treatment_var]])) +
+    geom_point() +
+    geom_smooth(se=FALSE) +
+    scale_color_manual(values = treatment_colors) +
+    labs(x = "Time since start", y = "Residuals", col = "Treatment",
+         title = paste(name_prefix, "Interaction between Treatment and time,", start_date, "to", end_date))
+
+  #to here
+    # Mean plot with panels and geom_smooth
+ 
+# Create groups for faceting with corrected grouping logic
+  subset_data$plot_group <- factor(
+    case_when(
+      subset_data$Treatment %in% c("REF_1", "REF_2", "REF_3", "REF_4", "137 kg N/ha*") ~ "Reference Treatments",
+      subset_data$Treatment %in% c("BA6", "BIO", "BVC", "ECO", "FEK") ~ "BBF Treatments 1",
+      subset_data$Treatment %in% c("MO13", "OG2", "PCW", "SDG", "PAL") ~ "BBF Treatments 2",
+      TRUE ~ "Other"  
+    ),
+    levels = c("Reference Treatments", "BBF Treatments 1", "BBF Treatments 2")
+  )
+# First, create the data subsets
+ref_data <- subset_data[subset_data$Treatment %in% c("REF_1", "REF_2", "REF_3", "REF_4", "137 kg N/ha*"), ]
+bbf1_data <- subset_data[subset_data$Treatment %in% c("REF_3","BA6", "BIO", "BVC", "ECO", "FEK"), ]
+bbf2_data <- subset_data[subset_data$Treatment %in% c("REF_3","MO13", "OG2", "PCW", "SDG", "PAL"), ]
+
+# Create individual plots
+plot_ref <- ggplot() +
+  geom_smooth(data = ref_data, 
+              aes(x = Date, y = .data[[response_var]], 
+                  color = Treatment),
+              span = 0.4, se = FALSE, alpha = 0.7, size = 0.8) +
+  geom_point(data = ref_data,
+             aes(x = Date, y = .data[[response_var]], 
+                 color = Treatment),
+             alpha = 0.4, size = 1) +
+  scale_color_manual(values = treatment_colors) +
+  scale_y_continuous(
+    limits = c(min(subset_data[[response_var]]) * 0.95, 
+              max(subset_data[[response_var]]) * 1.05),
+    expand = expansion(mult = c(0.02, 0.02))
+  ) +
+  my_theme +
+  labs(x = "Date", 
+       y = paste(response_var, index),
+       color = "Reference Treatments",
+       title = "Reference Treatments")
+
+plot_bbf1 <- ggplot() +
+  geom_smooth(data = bbf1_data, 
+              aes(x = Date, y = .data[[response_var]], 
+                  color = Treatment),
+              span = 0.4, se = FALSE, alpha = 0.7, size = 0.8) +
+  geom_point(data = bbf1_data,
+             aes(x = Date, y = .data[[response_var]], 
+                 color = Treatment),
+             alpha = 0.4, size = 1) +
+  scale_color_manual(values = treatment_colors) +
+  scale_y_continuous(
+    limits = c(min(subset_data[[response_var]]) * 0.95, 
+              max(subset_data[[response_var]]) * 1.05),
+    expand = expansion(mult = c(0.02, 0.02))
+  ) +
+  my_theme+
+  labs(x = "Date", 
+       y = paste(response_var, index),
+       color = "BBF Treatments 1",
+       title = "BBF Treatments 1")
+
+plot_bbf2 <- ggplot() +
+  geom_smooth(data = bbf2_data, 
+              aes(x = Date, y = .data[[response_var]], 
+                  color = Treatment),
+              span = 0.4, se = FALSE, alpha = 0.7, size = 0.8) +
+  geom_point(data = bbf2_data,
+             aes(x = Date, y = .data[[response_var]], 
+                 color = Treatment),
+             alpha = 0.4, size = 1) +
+  scale_color_manual(values = treatment_colors) +
+  scale_y_continuous(
+    limits = c(min(subset_data[[response_var]]) * 0.95, 
+              max(subset_data[[response_var]]) * 1.05),
+    expand = expansion(mult = c(0.02, 0.02))
+  ) +
+  my_theme +
+  labs(x = "Date", 
+       y = paste(response_var, index),
+       color = "BBF Treatments 2",
+       title = "BBF Treatments 2")
+
+# Combine plots using ggarrange
+plot3 <- ggarrange(plot_ref, plot_bbf1, plot_bbf2,
+                  ncol = 1,
+                  heights = c(1, 1, 1),
+                  align = "v",
+                  common.legend = FALSE)
+
+  # Create named list for results
+  results <- list(
+    #####And comment out here:
+    model_interaction = mod_int,
+    model_no_interaction = mod_no_int,
+    anova_result = anova_result,
+    plot_residuals_no_int = plot1,
+    plot_residuals_int = plot2,
+    ######to here
+    plot_response = plot3
+  )
+  
+  # Rename the elements in the list
+  names(results) <- c( ######and comment out here
+    paste0("mod_int_", name_prefix),
+    paste0("mod_no_int_", name_prefix),
+    paste0("anova_result_", name_prefix),
+    paste0("plot_residuals_no_int_", name_prefix),
+    paste0("plot_residuals_int_", name_prefix),
+    ######to here
+    paste0("plot_response_", name_prefix)
+  )
+  
+  return(results)
+}
+```
+
+## Running functions
+
+#### Mean NDRE sat large-plot trial
+
+```{r}
 # Run analysis for spring barley (2021)
-results_ndre_data25_mean_sb <- lme_analysis(ndre_data25, 
+results_ndre_data25_mean_sb <- lme_analysis_lp(ndre_data25, 
                            response_var = "mean", 
                            treatment_var = "Treatment",
                            plot_id_var = "PLOT_ID",
@@ -239,25 +562,6 @@ results_ndre_data25_mean_sb <- lme_analysis(ndre_data25,
                            identifier = "sb" ,
                            plottitle = "NDRE over time, large-plot trial - Spring Barley - 2021")
 
-results_ndre_data25_mean_sb$plot_response_ndre_data25_mean_sb <- 
-  results_ndre_data25_mean_sb$plot_response_ndre_data25_mean_sb +
-  labs(y = "Mean", 
-       col = "Treatment")
-
-# Renaming things in residual without interaction plot
-results_ndre_data25_mean_sb$plot_residuals_no_int_ndre_data25_mean_sb <- 
-  results_ndre_data25_mean_sb$plot_residuals_no_int_ndre_data25_mean_sb +
-  labs(y = "Residuals", 
-       col = "Treatment",
-       title = "NDRE over time, no interaction, Spring Barley, 2021") 
-#Renaming things in residual plot with interaction:
-results_ndre_data25_mean_sb$plot_residuals_int_ndre_data25_mean_sb <- 
-  results_ndre_data25_mean_sb$plot_residuals_int_ndre_data25_mean_sb +
-  labs(y = "Residuals", 
-       col = "Treatment",
-       title = "NDRE over time, with interaction, Spring Barley, 2021") 
-
-
 # Access results with new names
 print(results_ndre_data25_mean_sb$anova_result_ndre_data25_mean_sb)
 
@@ -266,8 +570,8 @@ print(results_ndre_data25_mean_sb$plot_residuals_no_int_ndre_data25_mean_sb)
 print(results_ndre_data25_mean_sb$plot_residuals_int_ndre_data25_mean_sb)
 print(results_ndre_data25_mean_sb$plot_response_ndre_data25_mean_sb)
 
-# Run analysis for spring Winter wheat (2022)
-results_ndre_data25_mean_ww <- lme_analysis(ndre_data25, 
+# Analysis for spring Winter wheat (2022)
+results_ndre_data25_mean_ww <- lme_analysis_lp(ndre_data25, 
                            response_var = "mean", 
                            treatment_var = "Treatment",
                            plot_id_var = "PLOT_ID",
@@ -276,41 +580,436 @@ results_ndre_data25_mean_ww <- lme_analysis(ndre_data25,
                            end_date = end_date_ww,
                            identifier = "ww",
                            plottitle = "NDRE over time, large-plot trial - Winter Wheat - 2022")
-# Renaming things in plot
-results_ndre_data25_mean_ww$plot_response_ndre_data25_mean_ww <- 
-  results_ndre_data25_mean_ww$plot_response_ndre_data25_mean_ww +
-  labs(y = "Mean", 
-       col = "Treatment",
-       )  # This renames both the y-axis and legend title
-
-# Renaming things in residual without interaction plot
-results_ndre_data25_mean_ww$plot_residuals_no_int_ndre_data25_mean_ww <- 
-  results_ndre_data25_mean_ww$plot_residuals_no_int_ndre_data25_mean_ww +
-  labs(y = "Residuals", 
-       col = "Treatment",
-       title = "NDRE over time, no interaction, Winter Wheat, 2022") 
-#Renaming things in residual plot with interaction:
-results_ndre_data25_mean_ww$plot_residuals_int_ndre_data25_mean_ww <- 
-  results_ndre_data25_mean_ww$plot_residuals_int_ndre_data25_mean_ww +
-  labs(y = "Residuals", 
-       col = "Treatment",
-       title = "NDRE over time, with interaction, Winter Wheat, 2022") 
 
 # Access results with new names
 print(results_ndre_data25_mean_ww$anova_result_ndre_data25_mean_ww)
 
-# Display plots with new names
+# Show plots
 print(results_ndre_data25_mean_ww$plot_residuals_no_int_ndre_data25_mean_ww)
 print(results_ndre_data25_mean_ww$plot_residuals_int_ndre_data25_mean_ww)
 print(results_ndre_data25_mean_ww$plot_response_ndre_data25_mean_ww)
-# Combine plots vertically with same width
-combined_plot <- ggarrange(results_ndre_data25_mean_sb$plot_response_ndre_data25_mean_sb, results_ndre_data25_mean_ww$plot_response_ndre_data25_mean_ww,
-                         ncol = 1,           # Stack vertically
-                         align = "v",        # Align vertically
-                         common.legend = FALSE) # Keep separate legends
 
-# Save with fixed dimensions
+```
 
-results_ndre_data25_mean_ww$plot_residuals_no_int_ndre_data25_mean_ww
-levels(factor(ndre_data25$Treatment_2022))
+#### Mean NDVI sat largeplot trial
+
+```{r}
+# Run analysis for spring barley (2021)
+results_ndvi_data25_mean_sb <- lme_analysis_lp(ndvi_data25, 
+                           response_var = "mean", 
+                           treatment_var = "Treatment",
+                           plot_id_var = "PLOT_ID",
+                           date_var = "timestamp",
+                           start_date = start_date_sb, 
+                           end_date = end_date_sb,
+                           identifier = "sb",
+                           plottitle = "NDVI over time, large-plot trial - Spring Barley - 2021")
+
+# Access results with new names
+print(results_ndvi_data25_mean_sb$anova_result_ndvi_data25_mean_sb)
+
+# Display plots with new names
+print(results_ndvi_data25_mean_sb$plot_residuals_no_int_ndvi_data25_mean_sb)
+print(results_ndvi_data25_mean_sb$plot_residuals_int_ndvi_data25_mean_sb)
+print(results_ndvi_data25_mean_sb$plot_response_ndvi_data25_mean_sb)
+
+
+# Run analysis for spring Winter wheat (2022)
+results_ndvi_data25_mean_ww <- lme_analysis_lp(ndvi_data25, 
+                           response_var = "mean", 
+                           treatment_var = "Treatment",
+                           plot_id_var = "PLOT_ID",
+                           date_var = "timestamp",
+                           start_date = start_date_ww, 
+                           end_date = end_date_ww,
+                           identifier = "ww",
+                           plottitle = "NDVI over time, large-plot trial - Winter Wheat - 2022")
+
+# Access results with new names
+print(results_ndvi_data25_mean_ww$anova_result_ndvi_data25_mean_ww)
+
+# Display plots with new names
+print(results_ndvi_data25_mean_ww$plot_residuals_no_int_ndvi_data25_mean_ww)
+print(results_ndvi_data25_mean_ww$plot_residuals_int_ndvi_data25_mean_ww)
+print(results_ndvi_data25_mean_ww$plot_response_ndvi_data25_mean_ww)
+```
+
+#### Mean NDRE UAV largeplot trial
+
+```{r}
+# Convert the numeric dates to Date format and recode treatments
+ndre_data25_uav <- ndre_data25_uav %>%
+  mutate(
+    date = as.Date(as.character(date), format = "%Y%m%d"),
+    Treatment = case_when(
+      T_2022 == "Mineral N 2022" ~ "Mineral",
+      T_2022 == "OG2 andet 2022" ~ "OG2, Residual fertiliser",
+      T_2022 == "OG2 2022" ~ "OG2",
+      T_2022 == "Kontrol 2022" ~ "Control",
+      TRUE ~ T_2022
+    ),
+    Treatment = factor(Treatment,
+                    levels = c("OG2, Residual fertiliser",
+                             "OG2",
+                             "Mineral",
+                             "Control"))
+  )
+
+# Run analysis
+results_ndre_data25_uav_mean_ww <- lme_analysis_lp_uav(ndre_data25_uav,
+                           response_var = "mean",
+                           treatment_var = "Treatment",
+                           plot_id_var = "PLOT_ID",
+                           date_var = "date",
+                           start_date = start_date_ww,
+                           end_date = end_date_ww,
+                           identifier = "ww",
+                           plottitle = "Mean NDRE over time, large plot trial, Winter Wheat, 2022")
+
+
+
+# Residuals plot without interaction
+print(results_ndre_data25_uav_mean_ww$plot_residuals_no_int_ndre_data25_uav_mean_ww)
+
+# Residuals plot with interaction
+print(results_ndre_data25_uav_mean_ww$plot_residuals_int_ndre_data25_uav_mean_ww)
+# Response plot
+print(results_ndre_data25_uav_mean_ww$plot_response_ndre_data25_uav_mean_ww)
+
+# ANOVA results
+print(results_ndre_data25_uav_mean_ww$anova_result_ndre_data25_uav_mean_ww)
+```
+
+#### Mean NDVI UAV largeplot trial
+
+```{r}
+ndvi_data25_uav <- ndvi_data25_uav %>%
+  mutate(
+    date = as.Date(as.character(date), format = "%Y%m%d"),
+    Treatment = case_when(
+      T_2022 == "Mineral N 2022" ~ "Mineral",
+      T_2022 == "OG2 andet 2022" ~ "OG2, Residual fertiliser",
+      T_2022 == "OG2 2022" ~ "OG2",
+      T_2022 == "Kontrol 2022" ~ "Control",
+      TRUE ~ T_2022
+    ),
+    Treatment = factor(Treatment, 
+                    levels = c("OG2, Residual fertiliser", 
+                             "OG2", 
+                             "Mineral", 
+                             "Control"))
+  )
+
+# Run analysis
+results_ndvi_data25_uav_mean_ww <- lme_analysis_lp_uav(ndvi_data25_uav, 
+                           response_var = "mean", 
+                           treatment_var = "Treatment",
+                           plot_id_var = "PLOT_ID",
+                           date_var = "date",
+                           start_date = start_date_ww, 
+                           end_date = end_date_ww,
+                           identifier = "ww",
+                           plottitle = "Mean NDVI over time, large-plot trial, Winter Wheat, 2022")
+
+
+
+# Residuals plot without interaction
+print(results_ndvi_data25_uav_mean_ww$plot_residuals_no_int_ndvi_data25_uav_mean_ww)
+
+# Residuals plot with interaction
+print(results_ndvi_data25_uav_mean_ww$plot_residuals_int_ndvi_data25_uav_mean_ww)
+# Response plot
+print(results_ndvi_data25_uav_mean_ww$plot_response_ndvi_data25_uav_mean_ww)
+
+# ANOVA results
+print(results_ndvi_data25_uav_mean_ww$anova_result_ndvi_data25_uav_mean_ww)
+```
+
+#### Mean NDRE sat small plot trial
+
+```{r}
+# Analysis for spring barley (2021)
+results_ndre_data26_mean_sb <- reflectance26_analysis(ndre_data26, 
+                                             response_var = "mean", 
+                                             treatment_var = "Treatment",
+                                             plot_id_var = "PLOT_ID",
+                                             block_var = "Block_a",
+                                             date_var = "timestamp",
+                                             start_date = start_date_sb, 
+                                             end_date = end_date_sb,
+                                             identifier = "sb",
+                                             index = "NDRE")
+
+# Results with new names
+print(results_ndre_data26_mean_sb$anova_result_ndre_data26_mean_sb)
+
+
+# Plots with new names
+print(results_ndre_data26_mean_sb$plot_residuals_no_int_ndre_data26_mean_sb)
+print(results_ndre_data26_mean_sb$plot_residuals_int_ndre_data26_mean_sb)
+print(results_ndre_data26_mean_sb$plot_response_ndre_data26_mean_sb)
+
+## Winter wheat results
+
+results_ndre_data26_mean_ww <- reflectance26_analysis(ndre_data26, 
+                                             response_var = "mean", 
+                                             treatment_var = "Treatment",
+                                             plot_id_var = "PLOT_ID",
+                                             block_var = "Block_a",
+                                             date_var = "timestamp",
+                                             start_date = start_date_ww, 
+                                             end_date = end_date_ww,
+                                             identifier = "ww", 
+                                             index = "NDRE")
+
+
+# Access results for winter wheat
+print(results_ndre_data26_mean_ww$anova_result_ndre_data26_mean_ww)
+print(results_ndre_data26_mean_ww$plot_residuals_no_int_ndre_data26_mean_ww)
+print(results_ndre_data26_mean_ww$plot_residuals_int_ndre_data26_mean_ww)
+print(results_ndre_data26_mean_ww$plot_response_ndre_data26_mean_ww)
+
+# Run analysis for residual fertilised plot
+#### Not able to run this part due to "False convergence". The plot can be made if the function is run again with the model section commented out. 
+results_ndre_data26_residual_mean_ww <- reflectance26_analysis(ndre_data26_residual,
+                                             response_var = "mean",
+                                             treatment_var = "Treatment",
+                                             plot_id_var = "PLOT_ID",
+                                             block_var = "Block_a",
+                                             date_var = "timestamp",
+                                             start_date = start_date_wwres,
+                                             end_date = end_date_wwres,
+                                             identifier = "ww",
+                                             index = "ndre")
+
+results_ndre_data26_residual_mean_ww$plot_response_ndre_data26_residual_mean_ww <-
+  annotate_figure(results_ndre_data26_residual_mean_ww$plot_response_ndre_data26_residual_mean_ww,
+                 top = text_grob("ndre over time, Small plot trial - Winter Wheat, residual fertiliser - 2022",
+                               face = "bold", size = 14))
+
+# Access results with new names
+print(results_ndre_data26_residual_mean_ww$anova_result_ndre_data26_residual_mean_ww)
+
+# Display plots with new names
+print(results_ndre_data26_residual_mean_ww$plot_residuals_no_int_ndre_data26_residual_mean_ww)
+print(results_ndre_data26_residual_mean_ww$plot_residuals_int_ndre_data26_residual_mean_ww)
+print(results_ndre_data26_residual_mean_ww$plot_response_ndre_data26_residual_mean_ww)
+```
+
+#### Mean NDVI sat small plot trial
+
+```{r}
+#Spring barley analysis
+results_ndvi_data26_mean_sb <- reflectance26_analysis(ndvi_data26, 
+                                             response_var = "mean", 
+                                             treatment_var = "Treatment",
+                                             plot_id_var = "PLOT_ID",
+                                             block_var = "Block_a",
+                                             date_var = "timestamp",
+                                             start_date = start_date_sb, 
+                                             end_date = end_date_sb,
+                                             identifier = "sb",
+                                             index ="NDVI")
+
+# Access results with new names
+print(results_ndvi_data26_mean_sb$anova_result_ndvi_data26_mean_sb)
+
+# Display plots with new names
+print(results_ndvi_data26_mean_sb$plot_residuals_no_int_ndvi_data26_mean_sb)
+print(results_ndvi_data26_mean_sb$plot_residuals_int_ndvi_data26_mean_sb)
+print(results_ndvi_data26_mean_sb$plot_response_ndvi_data26_mean_sb)
+
+# Winter wheat results
+results_ndvi_data26_mean_ww <- reflectance26_analysis(ndvi_data26, 
+                                             response_var = "mean", 
+                                             treatment_var = "Treatment",
+                                             plot_id_var = "PLOT_ID",
+                                             block_var = "Block_a",
+                                             date_var = "timestamp",
+                                             start_date = start_date_ww, 
+                                             end_date = end_date_ww,
+                                             identifier = "ww",
+                                             index= "NDVI")
+
+# Access results for winter wheat
+print(results_ndvi_data26_mean_ww$anova_result_ndvi_data26_mean_ww)
+print(results_ndvi_data26_mean_ww$plot_residuals_no_int_ndvi_data26_mean_ww)
+print(results_ndvi_data26_mean_ww$plot_residuals_int_ndvi_data26_mean_ww)
+print(results_ndvi_data26_mean_ww$plot_response_ndvi_data26_mean_ww)
+
+
+# Run analysis for residual fertilised plot
+results_ndvi_data26_residual_mean_ww <- reflectance26_analysis(ndvi_data26_residual, 
+                                             response_var = "mean", 
+                                             treatment_var = "Treatment",
+                                             plot_id_var = "PLOT_ID",
+                                             block_var = "Block_a",
+                                             date_var = "timestamp",
+                                             start_date = start_date_wwres, 
+                                             end_date = end_date_wwres,
+                                             identifier = "ww",
+                                             index = "NDVI")
+
+results_ndvi_data26_residual_mean_ww$plot_response_ndvi_data26_residual_mean_ww <- 
+  annotate_figure(results_ndvi_data26_residual_mean_ww$plot_response_ndvi_data26_residual_mean_ww,
+                 top = text_grob("NDVI over time, Small plot trial - Winter Wheat, residual fertiliser - 2022",
+                               face = "bold", size = 14))
+
+# Access results with new names
+print(results_ndvi_data26_residual_mean_ww$anova_result_ndvi_data26_residual_mean_ww)
+
+# Display plots with new names
+print(results_ndvi_data26_residual_mean_ww$plot_residuals_no_int_ndvi_data26_residual_mean_ww)
+print(results_ndvi_data26_residual_mean_ww$plot_residuals_int_ndvi_data26_residual_mean_ww)
+print(results_ndvi_data26_residual_mean_ww$plot_response_ndvi_data26_residual_mean_ww)
+```
+
+## CV
+
+#### CV NDRE sat Large-plot trial
+
+```{r}
+ndre_data25$cv <- (ndre_data25$std / ndre_data25$mean)
+
+# Run analysis for spring barley (2021)
+results_ndre_data25_cv_sb <- lme_analysis_lp(ndre_data25, 
+                           response_var = "cv", 
+                           treatment_var = "Treatment",
+                           plot_id_var = "PLOT_ID",
+                           date_var = "timestamp",
+                           start_date = start_date_sb, 
+                           end_date = end_date_sb,
+                           identifier = "sb",
+                           plottitle = "CV over time, NDRE, field 25 - Spring Barley - 2022")
+
+# Access results with new names
+print(results_ndre_data25_cv_sb$anova_result_ndre_data25_cv_sb)
+
+# Display plots with new names
+print(results_ndre_data25_cv_sb$plot_residuals_no_int_ndre_data25_cv_sb)
+print(results_ndre_data25_cv_sb$plot_residuals_int_ndre_data25_cv_sb)
+print(results_ndre_data25_cv_sb$plot_response_ndre_data25_cv_sb)
+
+
+# Run analysis for spring Winter wheat (2022)
+results_ndre_data25_cv_ww <- lme_analysis_lp(ndre_data25, 
+                           response_var = "cv", 
+                           treatment_var = "Treatment",
+                           plot_id_var = "PLOT_ID",
+                           date_var = "timestamp",
+                           start_date = start_date_ww, 
+                           end_date = end_date_ww,
+                           identifier = "ww",
+                           plottitle ="CV over time, NDRE, field 25 - Winter Wheat - 2022")
+
+# Access results with new names
+print(results_ndre_data25_cv_ww$anova_result_ndre_data25_cv_ww)
+
+# Display plots with new names
+print(results_ndre_data25_cv_ww$plot_residuals_no_int_ndre_data25_cv_ww)
+print(results_ndre_data25_cv_ww$plot_residuals_int_ndre_data25_cv_ww)
+print(results_ndre_data25_cv_ww$plot_response_ndre_data25_cv_ww)
+```
+
+#### CV NDVI sat Large-plot trial
+
+```{r}
+ndvi_data25$cv <- (ndvi_data25$std / ndvi_data25$mean)
+
+# Run analysis for spring barley (2021)
+results_ndvi_data25_cv_sb <- lme_analysis_lp(ndvi_data25, 
+                           response_var = "cv", 
+                           treatment_var = "Treatment",
+                           plot_id_var = "PLOT_ID",
+                           date_var = "timestamp",
+                           start_date = start_date_sb, 
+                           end_date = end_date_sb,
+                           identifier = "sb",
+                           plottitle = "CV over time, NDVI, field 25 - Spring Barley - 2021")
+
+# Access results with new names
+print(results_ndvi_data25_cv_sb$anova_result_ndvi_data25_cv_sb)
+
+# Display plots with new names
+print(results_ndvi_data25_cv_sb$plot_residuals_no_int_ndvi_data25_cv_sb)
+print(results_ndvi_data25_cv_sb$plot_residuals_int_ndvi_data25_cv_sb)
+print(results_ndvi_data25_cv_sb$plot_response_ndvi_data25_cv_sb)
+
+
+# Run analysis for spring Winter wheat (2022)
+results_ndvi_data25_cv_ww <- lme_analysis_lp(ndvi_data25, 
+                           response_var = "cv", 
+                           treatment_var = "Treatment",
+                           plot_id_var = "PLOT_ID",
+                           date_var = "timestamp",
+                           start_date = start_date_ww, 
+                           end_date = end_date_ww,
+                           identifier = "ww",
+                           plottitle ="CV over time, NDVI, field 25 - Winter Wheat - 2022")
+
+# Access results with new names
+print(results_ndvi_data25_cv_ww$anova_result_ndvi_data25_cv_ww)
+
+# Display plots with new names
+print(results_ndvi_data25_cv_ww$plot_residuals_no_int_ndvi_data25_cv_ww)
+print(results_ndvi_data25_cv_ww$plot_residuals_int_ndvi_data25_cv_ww)
+print(results_ndvi_data25_cv_ww$plot_response_ndvi_data25_cv_ww)
+```
+
+#### CV NDRE UAV Large-plot trial
+
+```{r}
+
+# Run analysis
+results_ndre_data25_uav_cv_ww <- lme_analysis_lp_uav(ndre_data25_uav, 
+                           response_var = "cv", 
+                           treatment_var = "Treatment",
+                           plot_id_var = "PLOT_ID",
+                           date_var = "date",
+                           start_date = start_date_ww, 
+                           end_date = end_date_ww,
+                           identifier = "ww",
+                           plottitle = "CV for NDRE over time, large plot trial, Winter Wheat, 2022")
+
+
+
+# Residuals plot without interaction
+print(results_ndre_data25_uav_cv_ww$plot_residuals_no_int_ndre_data25_uav_cv_ww)
+
+# Residuals plot with interaction
+print(results_ndre_data25_uav_cv_ww$plot_residuals_int_ndre_data25_uav_cv_ww)
+# Response plot
+print(results_ndre_data25_uav_cv_ww$plot_response_ndre_data25_uav_cv_ww)
+
+# ANOVA results
+print(results_ndre_data25_uav_cv_ww$anova_result_ndre_data25_uav_cv_ww)
+```
+
+#### CV NDVI UAV Large-plot trial
+
+```{r}
+# Run analysis
+results_ndvi_data25_uav_cv_ww <- lme_analysis_lp_uav(ndvi_data25_uav, 
+                           response_var = "cv", 
+                           treatment_var = "Treatment",
+                           plot_id_var = "PLOT_ID",
+                           date_var = "date",
+                           start_date = start_date_ww, 
+                           end_date = end_date_ww,
+                           identifier = "ww",
+                           plottitle = "CV for NDVI over time, large plot trial, Winter Wheat, 2022")
+
+
+
+# Residuals plot without interaction
+print(results_ndvi_data25_uav_cv_ww$plot_residuals_no_int_ndvi_data25_uav_cv_ww)
+
+# Residuals plot with interaction
+print(results_ndvi_data25_uav_cv_ww$plot_residuals_int_ndvi_data25_uav_cv_ww)
+# Response plot
+print(results_ndvi_data25_uav_cv_ww$plot_response_ndvi_data25_uav_cv_ww)
+
+# ANOVA results
+print(results_ndvi_data25_uav_cv_ww$anova_result_ndvi_data25_uav_cv_ww)
+
 ```
