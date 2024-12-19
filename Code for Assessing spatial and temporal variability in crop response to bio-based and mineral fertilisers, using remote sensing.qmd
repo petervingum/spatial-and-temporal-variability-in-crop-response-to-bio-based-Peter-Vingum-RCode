@@ -31,6 +31,7 @@ library(emmeans)
 library(broom)
 library(patchwork)
 library(nlme)
+library(stringr)
 library(mgcv)
 library(multcompView)
 library(lubridate)
@@ -71,6 +72,9 @@ treatment_colors <- c(
   "OG2" = "#ff7f0e",
   "Mineral" = "#2ca02c",
   "Control" = "#d62728",
+  "MIN" = "#2ca02c",
+                     "CON" = "#d62728",
+  "OG2_residual" = "#1f77b4",
   "REF_1" = "#1f77b4",     # Blue
   "REF_2" = "#7f7f7f",     # Gray
   "REF_3" = "#2ca02c",     # Green (original Mineral color)
@@ -140,6 +144,22 @@ ndre_data26_residual <- read_csv(here("data", "ndre_data26_residual.csv"))
 ndre_data26 <- read_csv(here("data", "ndre_data26.csv")) 
 ndvi_uav_field26 <- read_csv(here("data", "ndvi_uav_field26.csv"))
 ndvi_uav_field26_residual <- read_csv(here("data", "ndvi_uav_field26_residual.csv"))
+voronoi_withinlargeplots_25 <- read_csv(here("data","voronoi_withinlargeplots_25_2_UAV.csv"))
+voronoi_within_smallplot_full_26_nonresdata <- read_csv(here("data","voronoi_within_smallplot_full_26_nonresdata.csv"))
+reflectance_soiloptix_largeplot25_satelite <- read_csv(here("data","reflectance_soiloptix_largeplot25_satelite.csv"))
+
+ndvi_uav_field25 <- read_csv(here("data", "ndvi_uav_field25.csv"))
+ndre_uav_field25 <- read_csv(here("data", "ndre_uav_field25.csv"))
+ndvi_uav_field26 <- read_csv(here("data", "ndvi_uav_field26.csv"))
+ndre_uav_field26 <- read_csv(here("data", "ndre_uav_field26.csv"))
+ndre_uav_field26_residual <- read_csv(here("data", "ndre_uav_field26_residual.csv"))
+ndvi_uav_field26_residual <- read_csv(here("data", "ndvi_uav_field26_residual.csv"))
+reflectance_soiloptix_26_satelite <- read_csv(here("data", "reflectance_soiloptix_26.csv"))
+reflectance_soiloptix_26_res_sat <- read_csv(here("data", "reflectance_soiloptix_26_res_sat.csv"))
+harvest_field25 <- read_csv(here("data", "harvest_field25.csv"))
+harvest_field26 <- read_csv(here("data", "harvest_field26.csv"))
+ndre_data25_2 <- read_csv(here("data", "ndre_data25_2.csv"))
+ndvi_data25_2 <- read_csv(here("data", "ndvi_data25_2.csv"))
 
 ```
 
@@ -951,6 +971,8 @@ print(results_ndre_data25_mean_sb$anova_result_ndre_data25_mean_sb)
 print(results_ndre_data25_mean_sb$plot_residuals_no_int_ndre_data25_mean_sb)
 print(results_ndre_data25_mean_sb$plot_residuals_int_ndre_data25_mean_sb)
 print(results_ndre_data25_mean_sb$plot_response_ndre_data25_mean_sb)
+print(results_ndre_data25_mean_sb$plot_qq_no_int_ndre_data25_mean_sb)
+print(results_ndre_data25_mean_sb$plot_qq_int_ndre_data25_mean_sb)
 
 # Analysis for spring Winter wheat (2022)
 results_ndre_data25_mean_ww <- lme_analysis_lp(ndre_data25, 
@@ -996,6 +1018,8 @@ print(results_ndvi_data25_mean_sb$anova_result_ndvi_data25_mean_sb)
 print(results_ndvi_data25_mean_sb$plot_residuals_no_int_ndvi_data25_mean_sb)
 print(results_ndvi_data25_mean_sb$plot_residuals_int_ndvi_data25_mean_sb)
 print(results_ndvi_data25_mean_sb$plot_response_ndvi_data25_mean_sb)
+print(results_ndvi_data25_mean_sb$plot_qq_no_int_ndvi_data25_mean_sb)
+print(results_ndvi_data25_mean_sb$plot_qq_int_ndvi_data25_mean_sb)
 
 
 # Run analysis for spring Winter wheat (2022)
@@ -1318,7 +1342,7 @@ print(results_ndvi_field26_mean_ww_residual$plot_qq_no_int_ndvi_uav_field26_resi
 print(results_ndvi_field26_mean_ww_residual$plot_qq_int_ndvi_uav_field26_residual_mean_ww)
 ```
 
-#### NDRE
+#### NDRE small plot UAV
 
 ```{r}
 # Read data
@@ -1672,191 +1696,1735 @@ print(results_ndvi_data25_uav_cv_ww$anova_result_ndvi_data25_uav_cv_ww)
 
 ```
 
+## Soil parameters
+
+### UAV NDRE/NDVILargeplot
+
 ```{r}
-# Define the base path
-base_path <- "/Users/petervingum/Library/CloudStorage/OneDrive-UniversityofCopenhagen/Speciale/LaTeX_Thesis/figures"
+# Function to create and analyze models with and without interaction terms
+create_and_analyze_models <- function(data, response_var, parameter, year) {
+  # Create formula strings for both model types
+  interaction_formula <- as.formula(paste(response_var, "~", "T_", year, "*", parameter, "+ (1|PLOT_ID)", sep=""))
+  no_interaction_formula <- as.formula(paste(response_var, "~", "T_", year, "+", parameter, "+ (1|PLOT_ID)", sep=""))
+  
+  # Fit both models
+  model_int <- lmer(interaction_formula, data = data)
+  model_no_int <- lmer(no_interaction_formula, data = data)
+  
+  # Compare models using ANOVA
+  comparison <- anova(model_int, model_no_int)
+  
+  # Return all model results
+  list(
+    interaction = model_int,
+    no_interaction = model_no_int,
+    comparison = comparison
+  )
+}
 
-# # Field 26 NDVI and NDRE mean analysis - Spring Barley
-# ggsave(paste0(base_path, "ndre_data26_mean_sb_no_int_qq.pdf"), 
-#        results_ndre_data26_mean_sb$plot_qq_no_int_ndre_data26_mean_sb,
-#        width = 10, height = 6)
-# ggsave(paste0(base_path, "ndre_data26_mean_sb_int_qq.pdf"), 
-#        results_ndre_data26_mean_sb$plot_qq_int_ndre_data26_mean_sb,
-#        width = 10, height = 6)
-# ggsave(paste0(base_path, "ndvi_data26_mean_sb_no_int_qq.pdf"), 
-#        results_ndvi_data26_mean_sb$plot_qq_no_int_ndvi_data26_mean_sb,
-#        width = 10, height = 6)
-# ggsave(paste0(base_path, "ndvi_data26_mean_sb_int_qq.pdf"), 
-#        results_ndvi_data26_mean_sb$plot_qq_int_ndvi_data26_mean_sb,
-#        width = 10, height = 6)
-# 
-# # Field 26 NDVI and NDRE mean analysis - Winter Wheat
-# ggsave(paste0(base_path, "ndvi_data26_mean_ww_no_int_qq.pdf"), 
-#        results_ndvi_data26_mean_ww$plot_qq_no_int_ndvi_data26_mean_ww,
-#        width = 10, height = 6)
-# ggsave(paste0(base_path, "ndvi_data26_mean_ww_int_qq.pdf"), 
-#        results_ndvi_data26_mean_ww$plot_qq_int_ndvi_data26_mean_ww,
-#        width = 10, height = 6)
-# ggsave(paste0(base_path, "ndre_data26_mean_ww_no_int_qq.pdf"), 
-#        results_ndre_data26_mean_ww$plot_qq_no_int_ndre_data26_mean_ww,
-#        width = 10, height = 6)
-# ggsave(paste0(base_path, "ndre_data26_mean_ww_int_qq.pdf"), 
-#        results_ndre_data26_mean_ww$plot_qq_int_ndre_data26_mean_ww,
-#        width = 10, height = 6)
-# 
-# # Field 26 NDVI and NDRE residual mean analysis - Winter Wheat
-# ggsave(paste0(base_path, "ndvi_data26_residual_mean_ww_no_int_qq.pdf"), 
-#        results_ndvi_data26_residual_mean_ww$plot_qq_no_int_ndvi_data26_residual_mean_ww,
-#        width = 10, height = 6)
-# ggsave(paste0(base_path, "ndvi_data26_residual_mean_ww_int_qq.pdf"), 
-#        results_ndvi_data26_residual_mean_ww$plot_qq_int_ndvi_data26_residual_mean_ww,
-#        width = 10, height = 6)
-# 
-# # Field 25 NDVI and NDRE CV analysis - Spring Barley
-# ggsave(paste0(base_path, "ndvi_data25_cv_sb_no_int_qq.pdf"), 
-#        results_ndvi_data25_cv_sb$plot_qq_no_int_ndvi_data25_cv_sb,
-#        width = 10, height = 6)
-# ggsave(paste0(base_path, "ndvi_data25_cv_sb_int_qq.pdf"), 
-#        results_ndvi_data25_cv_sb$plot_qq_int_ndvi_data25_cv_sb,
-#        width = 10, height = 6)
-# ggsave(paste0(base_path, "ndre_data25_cv_sb_no_int_qq.pdf"), 
-#        results_ndre_data25_cv_sb$plot_qq_no_int_ndre_data25_cv_sb,
-#        width = 10, height = 6)
-# ggsave(paste0(base_path, "ndre_data25_cv_sb_int_qq.pdf"), 
-#        results_ndre_data25_cv_sb$plot_qq_int_ndre_data25_cv_sb,
-#        width = 10, height = 6)
-# 
-# # Field 25 NDVI and NDRE CV analysis - Winter Wheat
-# ggsave(paste0(base_path, "ndvi_data25_cv_ww_no_int_qq.pdf"), 
-#        results_ndvi_data25_cv_ww$plot_qq_no_int_ndvi_data25_cv_ww,
-#        width = 10, height = 6)
-# ggsave(paste0(base_path, "ndvi_data25_cv_ww_int_qq.pdf"), 
-#        results_ndvi_data25_cv_ww$plot_qq_int_ndvi_data25_cv_ww,
-#        width = 10, height = 6)
-# ggsave(paste0(base_path, "ndre_data25_cv_ww_no_int_qq.pdf"), 
-#        results_ndre_data25_cv_ww$plot_qq_no_int_ndre_data25_cv_ww,
-#        width = 10, height = 6)
-# ggsave(paste0(base_path, "ndre_data25_cv_ww_int_qq.pdf"), 
-#        results_ndre_data25_cv_ww$plot_qq_int_ndre_data25_cv_ww,
-#        width = 10, height = 6)
-# 
-# # UAV analysis - NDVI and NDRE CV Winter Wheat
-# ggsave(paste0(base_path, "ndvi_data25_uav_cv_ww_no_int_qq.pdf"), 
-#        results_ndvi_data25_uav_cv_ww$plot_qq_no_int_ndvi_data25_uav_cv_ww,
-#        width = 10, height = 6)
-# ggsave(paste0(base_path, "ndvi_data25_uav_cv_ww_int_qq.pdf"), 
-#        results_ndvi_data25_uav_cv_ww$plot_qq_int_ndvi_data25_uav_cv_ww,
-#        width = 10, height = 6)
-# ggsave(paste0(base_path, "ndre_data25_uav_cv_ww_no_int_qq.pdf"), 
-#        results_ndre_data25_uav_cv_ww$plot_qq_no_int_ndre_data25_uav_cv_ww,
-#        width = 10, height = 6)
-# ggsave(paste0(base_path, "ndre_data25_uav_cv_ww_int_qq.pdf"), 
-#        results_ndre_data25_uav_cv_ww$plot_qq_int_ndre_data25_uav_cv_ww,
-#        width = 10, height = 6)
-# # Field 25 NDVI and NDRE mean analysis - Winter Wheat
-# ggsave(paste0(base_path, "ndre_data25_mean_ww_no_int_qq.pdf"), 
-#        results_ndre_data25_mean_ww$plot_qq_no_int_ndre_data25_mean_ww,
-#        width = 10, height = 6)
-# ggsave(paste0(base_path, "ndre_data25_mean_ww_int_qq.pdf"), 
-#        results_ndre_data25_mean_ww$plot_qq_int_ndre_data25_mean_ww,
-#        width = 10, height = 6)
-# 
-# ggsave(paste0(base_path, "ndvi_data25_mean_ww_no_int_qq.pdf"), 
-#        results_ndvi_data25_mean_ww$plot_qq_no_int_ndvi_data25_mean_ww,
-#        width = 10, height = 6)
-# ggsave(paste0(base_path, "ndvi_data25_mean_ww_int_qq.pdf"), 
-#        results_ndvi_data25_mean_ww$plot_qq_int_ndvi_data25_mean_ww,
-#        width = 10, height = 6)
-# 
-# # Field 25 UAV NDVI and NDRE mean analysis - Winter Wheat
-# ggsave(paste0(base_path, "ndre_data25_uav_mean_ww_no_int_qq.pdf"), 
-#        results_ndre_data25_uav_mean_ww$plot_qq_no_int_ndre_data25_uav_mean_ww,
-#        width = 10, height = 6)
-# ggsave(paste0(base_path, "ndre_data25_uav_mean_ww_int_qq.pdf"), 
-#        results_ndre_data25_uav_mean_ww$plot_qq_int_ndre_data25_uav_mean_ww,
-#        width = 10, height = 6)
-# 
-# ggsave(paste0(base_path, "ndvi_data25_uav_mean_ww_no_int_qq.pdf"), 
-#        results_ndvi_data25_uav_mean_ww$plot_qq_no_int_ndvi_data25_uav_mean_ww,
-#        width = 10, height = 6)
-# ggsave(paste0(base_path, "ndvi_data25_uav_mean_ww_int_qq.pdf"), 
-#        results_ndvi_data25_uav_mean_ww$plot_qq_int_ndvi_data25_uav_mean_ww,
-#        width = 10, height = 6)
+# Function to create main effect plots showing relationship between variables
+create_main_effect_plot <- function(data, y_var, x_var, treatment_year) {
+  y_label <- if(grepl("NDVI", y_var)) "NDVI" else "NDRE"
+  
+  ggplot(data, aes_string(x = x_var, y = y_var, color = paste0("T_", treatment_year))) +
+    geom_point(alpha = 0.5) +
+    geom_smooth(method = "lm", formula = y ~ x, se = TRUE) +
+    scale_color_manual(values = treatment_colors) +
+    my_theme +
+    labs(
+      x = paste(x_var, "content"),
+      y = y_label,
+      color = "Treatment",
+      title = paste(y_label, "vs", x_var, "by Treatment")
+    )
+}
 
-# Save Spring Barley QQ plots
-# ggsave(paste0(base_path, "ndvi_data26_mean_sb_agg_qq.pdf"), 
-#        results_ndvi_data26_mean_sb_agg$plot_qq_aggregated_ndvi_data26_mean_sb,
-#        width = 10, height = 6)
-# ggsave(paste0(base_path, "ndvi_data26_mean_sb_ind_qq.pdf"), 
-#        results_ndvi_data26_mean_sb_agg$plot_qq_individual_ndvi_data26_mean_sb,
-#        width = 10, height = 6)
-# 
-# # Save Winter Wheat QQ plots
-# ggsave(paste0(base_path, "ndvi_data26_mean_ww_agg_qq.pdf"), 
-#        results_ndvi_data26_mean_ww_agg$plot_qq_aggregated_ndvi_data26_mean_ww,
-#        width = 10, height = 6)
-# ggsave(paste0(base_path, "ndvi_data26_mean_ww_ind_qq.pdf"), 
-#        results_ndvi_data26_mean_ww_agg$plot_qq_individual_ndvi_data26_mean_ww,
-#        width = 10, height = 6)
-# 
-# # Save Residual analysis QQ plots
-# ggsave(paste0(base_path, "ndvi_data26_residual_mean_ww_agg_qq.pdf"), 
-#        results_ndvi_data26_residual_mean_ww_agg$plot_qq_aggregated_ndvi_data26_residual_mean_ww,
-#        width = 10, height = 6)
-# ggsave(paste0(base_path, "ndvi_data26_residual_mean_ww_ind_qq.pdf"), 
-#        results_ndvi_data26_residual_mean_ww_agg$plot_qq_individual_ndvi_data26_residual_mean_ww,
-#        width = 10, height = 6)
-# 
-# # Save Spring Barley QQ plots
-# ggsave(paste0(base_path, "ndre_data26_mean_sb_agg_qq.pdf"), 
-#        results_ndre_data26_mean_sb_agg$plot_qq_aggregated_ndre_data26_mean_sb,
-#        width = 10, height = 6)
-# ggsave(paste0(base_path, "ndre_data26_mean_sb_ind_qq.pdf"), 
-#        results_ndre_data26_mean_sb_agg$plot_qq_individual_ndre_data26_mean_sb,
-#        width = 10, height = 6)
-# 
-# # Save Winter Wheat QQ plots
-# ggsave(paste0(base_path, "ndre_data26_mean_ww_agg_qq.pdf"), 
-#        results_ndre_data26_mean_ww_agg$plot_qq_aggregated_ndre_data26_mean_ww,
-#        width = 10, height = 6)
-# ggsave(paste0(base_path, "ndre_data26_mean_ww_ind_qq.pdf"), 
-#        results_ndre_data26_mean_ww_agg$plot_qq_individual_ndre_data26_mean_ww,
-#        width = 10, height = 6)
-# 
-# # Save Residual analysis QQ plots
-# ggsave(paste0(base_path, "ndre_data26_residual_mean_ww_agg_qq.pdf"), 
-#        results_ndre_data26_residual_mean_ww_agg$plot_qq_aggregated_ndre_data26_residual_mean_ww,
-#        width = 10, height = 6)
-# ggsave(paste0(base_path, "ndre_data26_residual_mean_ww_ind_qq.pdf"), 
-#        results_ndre_data26_residual_mean_ww_agg$plot_qq_individual_ndre_data26_residual_mean_ww,
-#        width = 10, height = 6)
-# Save regular UAV QQ plots
-# ggsave(paste0(base_path, "ndvi_uav_field26_mean_ww_no_int_qq.pdf"), 
-#        results_ndvi_field26_mean_ww$plot_qq_no_int_ndvi_uav_field26_mean_ww,
-#        width = 10, height = 6)
-# ggsave(paste0(base_path, "ndvi_uav_field26_mean_ww_int_qq.pdf"), 
-#        results_ndvi_field26_mean_ww$plot_qq_int_ndvi_uav_field26_mean_ww,
-#        width = 10, height = 6)
-# 
-# # Save residual UAV QQ plots
-# ggsave(paste0(base_path, "ndvi_uav_field26_residual_mean_ww_no_int_qq.pdf"), 
-#        results_ndvi_field26_mean_ww_residual$plot_qq_no_int_ndvi_uav_field26_residual_mean_ww,
-#        width = 10, height = 6)
-# ggsave(paste0(base_path, "ndvi_uav_field26_residual_mean_ww_int_qq.pdf"), 
-#        results_ndvi_field26_mean_ww_residual$plot_qq_int_ndvi_uav_field26_residual_mean_ww,
-#        width = 10, height = 6)
-# ggsave(paste0(base_path, "ndre_uav_field26_mean_ww_no_int_qq.pdf"), 
-#        results_ndre_field26_mean_ww$plot_qq_no_int_ndre_uav_field26_mean_ww,
-#        width = 10, height = 6)
-# ggsave(paste0(base_path, "ndre_uav_field26_mean_ww_int_qq.pdf"), 
-#        results_ndre_field26_mean_ww$plot_qq_int_ndre_uav_field26_mean_ww,
-#        width = 10, height = 6)
-# 
-# # Save residual UAV QQ plots
-# ggsave(paste0(base_path, "ndre_uav_field26_residual_mean_ww_no_int_qq.pdf"), 
-#        results_ndre_field26_mean_ww_residual$plot_qq_no_int_ndre_uav_field26_residual_mean_ww,
-#        width = 10, height = 6)
-# ggsave(paste0(base_path, "ndre_uav_field26_residual_mean_ww_int_qq.pdf"), 
-#        results_ndre_field26_mean_ww_residual$plot_qq_int_ndre_uav_field26_residual_mean_ww,
-#        width = 10, height = 6)
+# Function to create residual plots for model diagnostics
+create_residual_plot <- function(model_data, treatment_year, response_var, parameter, interaction = TRUE) {
+  y_label <- if(grepl("NDVI", response_var)) "NDVI" else "NDRE"
+  interaction_text <- if(interaction) "With Interaction" else "Without Interaction"
+  
+  ggplot(model_data, aes(x = fitted, y = resid, color = Treatment)) +
+    geom_point(alpha = 0.5) +
+    geom_smooth(method = "loess", formula = y ~ x, se = TRUE) +
+    geom_hline(yintercept = 0, linetype = "dashed", color = "black") +
+    scale_color_manual(values = treatment_colors) +
+    theme_minimal() +
+    labs(
+      x = "Fitted values",
+      y = "Residuals",
+      title = paste(y_label, "vs", parameter, "-", interaction_text)
+    )
+}
+
+create_qq_plot <- function(model_data, treatment_year, response_var, parameter, interaction = TRUE) {
+  y_label <- if(grepl("NDVI", response_var)) "NDVI" else "NDRE"
+  interaction_text <- if(interaction) "With Interaction" else "Without Interaction"
+  
+  ggplot(data.frame(resid = residuals(model_data)), aes(sample = resid)) +
+    stat_qq() +
+    stat_qq_line() +
+    theme_minimal() +
+    labs(
+      x = "Theoretical Quantiles",
+      y = "Sample Quantiles",
+      title = paste(y_label, "vs", parameter, "QQ Plot -", interaction_text)
+    )
+}
+
+
+# Define analysis arameters - this is what i change! Call str() and see possibilities
+parameters <- c("humus", "ph", "clay")
+response_vars <- c("NDVI_b1_mean", "NDRE0517_b1_mean")
+
+# Initialize results storage
+all_results <- data.frame()
+
+# Generate all models and store results
+for(response_var in response_vars) {
+  for(param in parameters) {
+    models <- create_and_analyze_models(voronoi_withinlargeplots_25, response_var, param, "2022")
+    
+    result <- data.frame(
+      Index = ifelse(grepl("NDVI", response_var), "NDVI", "NDRE"),
+      Year = "2022",
+      Parameter = param,
+      L.Ratio = models$comparison$Chisq[2],
+      Num_DF = models$comparison$Df[2],
+      Den_DF = df.residual(models$interaction),
+      p.value = models$comparison$`Pr(>Chisq)`[2]
+    )
+    
+    all_results <- rbind(all_results, result)
+  }
+}
+
+# plot storage
+ndvi_main_plots <- list()
+ndre_main_plots <- list()
+ndvi_residual_plots <- list()
+ndre_residual_plots <- list()
+ndvi_qq_plots <- list()
+ndre_qq_plots <- list()
+
+
+#  plots for each parameter
+for(param in parameters) {
+  # Main effect plots
+  ndvi_main_plots[[param]] <- create_main_effect_plot(voronoi_withinlargeplots_25, 
+                                                     "NDVI_b1_mean", param, "2022")
+  ndre_main_plots[[param]] <- create_main_effect_plot(voronoi_withinlargeplots_25, 
+                                                     "NDRE0517_b1_mean", param, "2022")
+  
+  # Models and residual plots for NDVI
+  ndvi_models <- create_and_analyze_models(voronoi_withinlargeplots_25, 
+                                         "NDVI_b1_mean", param, "2022")
+  
+  # Create residual plots for NDVI
+  ndvi_residual_no_int <- create_residual_plot(
+    data.frame(
+      fitted = fitted(ndvi_models$no_interaction),
+      resid = residuals(ndvi_models$no_interaction),
+      Treatment = voronoi_withinlargeplots_25$T_2022,
+      Model = "no_interaction"
+    ), "2022", "NDVI", param, interaction = FALSE
+  )
+  
+  ndvi_residual_int <- create_residual_plot(
+    data.frame(
+      fitted = fitted(ndvi_models$interaction),
+      resid = residuals(ndvi_models$interaction),
+      Treatment = voronoi_withinlargeplots_25$T_2022,
+      Model = "interaction"
+    ), "2022", "NDVI", param, interaction = TRUE
+  )
+  ndvi_qq_no_int <- create_qq_plot(ndvi_models$no_interaction, 
+                                  "2022", "NDVI", param, 
+                                  interaction = FALSE)
+  
+  ndvi_qq_int <- create_qq_plot(ndvi_models$interaction, 
+                               "2022", "NDVI", param, 
+                               interaction = TRUE)
+  
+  
+  # name NDVI inspection plots
+  ndvi_residual_plots[[paste0(param, "_1")]] <- ndvi_residual_no_int
+  ndvi_residual_plots[[paste0(param, "_2")]] <- ndvi_residual_int
+  ndvi_qq_plots[[paste0(param, "_no_int")]] <- ndvi_qq_no_int
+  ndvi_qq_plots[[paste0(param, "_int")]] <- ndvi_qq_int
+  
+  # Models and residual plots for NDRE
+  ndre_models <- create_and_analyze_models(voronoi_withinlargeplots_25, 
+                                         "NDRE0517_b1_mean", param, "2022")
+  
+  # residual plots for NDRE
+  ndre_residual_no_int <- create_residual_plot(
+    data.frame(
+      fitted = fitted(ndre_models$no_interaction),
+      resid = residuals(ndre_models$no_interaction),
+      Treatment = voronoi_withinlargeplots_25$T_2022,
+      Model = "no_interaction"
+    ), "2022", "NDRE", param, interaction = FALSE
+  )
+  
+  ndre_residual_int <- create_residual_plot(
+    data.frame(
+      fitted = fitted(ndre_models$interaction),
+      resid = residuals(ndre_models$interaction),
+      Treatment = voronoi_withinlargeplots_25$T_2022,
+      Model = "interaction"
+    ), "2022", "NDRE", param, interaction = TRUE
+  )
+  ndre_qq_no_int <- create_qq_plot(ndre_models$no_interaction, 
+                                  "2022", "NDRE", param, 
+                                  interaction = FALSE)
+  
+  ndre_qq_int <- create_qq_plot(ndre_models$interaction, 
+                               "2022", "NDRE", param, 
+                               interaction = TRUE)
+  
+  # name NDRE residual plots
+  ndre_residual_plots[[paste0(param, "_1")]] <- ndre_residual_no_int
+  ndre_residual_plots[[paste0(param, "_2")]] <- ndre_residual_int
+   ndre_qq_plots[[paste0(param, "_no_int")]] <- ndre_qq_no_int
+  ndre_qq_plots[[paste0(param, "_int")]] <- ndre_qq_int
+}
+ndre_main_plots$ph <- ndre_main_plots$ph + xlab("pH")
+ndvi_main_plots$ph <- ndvi_main_plots$ph + xlab("pH")
+
+#Print
+print(ndre_residual_plots)
+print(ndvi_residual_plots)
+print(ndre_main_plots)
+print(ndvi_main_plots)
+print(ndre_models)
+print(ndvi_models)
+print(all_results)
+print(ndvi_qq_plots)
+print(ndre_qq_plots)
+```
+
+### UAV NDRE/NDVI Small plot
+
+```{r}
+# create model and plots for each soil parameter
+analyze_soil_parameter <- function(data, parameter, response_var, treatment_colors, index_name) {
+  # Fit models 
+  model_interaction <- lmer(paste0(response_var, " ~ Treatment_2022 * ", parameter, 
+                                 " + (1|PLOT_ID) + (1|Block_a)"), 
+                          weights = area,
+                          data = data)
+  model_no_interaction <- lmer(paste0(response_var, " ~ Treatment_2022 + ", parameter, 
+                                    " + (1|PLOT_ID) + (1|Block_a)"), 
+                             weights = area,
+                             data = data)
+  
+  # Create QQ plots
+  qq_int <- ggplot(data.frame(resid = residuals(model_interaction)), 
+                   aes(sample = resid)) +
+    stat_qq() +
+    stat_qq_line() +
+    my_theme +
+    labs(title = paste0(index_name, " QQ Plot - ", str_to_title(parameter), " with interaction"),
+         x = "Theoretical Quantiles",
+         y = "Sample Quantiles")
+
+  qq_no_int <- ggplot(data.frame(resid = residuals(model_no_interaction)), 
+                      aes(sample = resid)) +
+    stat_qq() +
+    stat_qq_line() +
+    my_theme +
+    labs(title = paste0(index_name, " QQ Plot - ", str_to_title(parameter), " without interaction"),
+         x = "Theoretical Quantiles",
+         y = "Sample Quantiles")
+  
+  # Customize x-axis label based on parameter
+  x_label <- case_when(
+    parameter == "ph" ~ "pH",
+    TRUE ~ paste0(str_to_title(parameter), " Content (%)")
+  )
+  
+  # Create scatter plot
+  p <- ggplot(data, aes_string(x = parameter, y = response_var, color = "Treatment_2022")) +
+    geom_point(alpha = 0.5) +
+    geom_smooth(method = "lm", formula = y ~ x, se = FALSE) +
+    scale_color_manual(values = treatment_colors, name = "Treatment") +
+    my_theme +
+    labs(
+      x = x_label,
+      y = index_name,
+      title = paste0(index_name, "-response to ", str_to_title(parameter), 
+                    ifelse(parameter == "ph", "", " content"), " by Treatment")
+    )
+    
+  # Return both models and plots
+  list(
+    interaction = model_interaction,
+    no_interaction = model_no_interaction,
+    plot = p,
+    qq_int = qq_int,
+    qq_no_int = qq_no_int,
+    anova = anova(model_interaction, model_no_interaction)
+  )
+}
+
+# Define parameters to analyze 
+soil_params <- c("clay", "ph")
+
+# Analyze NDRE
+ndre_results <- lapply(soil_params, function(param) {
+  analyze_soil_parameter(voronoi_within_smallplot_full_26_nonresdata, 
+                        param, "NDRE0517_uav", treatment_colors, "NDRE")
+})
+names(ndre_results) <- soil_params
+
+# Analyze NDVI
+ndvi_results <- lapply(soil_params, function(param) {
+  analyze_soil_parameter(voronoi_within_smallplot_full_26_nonresdata, 
+                        param, "NDVI0517_uav", treatment_colors, "NDVI")
+})
+names(ndvi_results) <- soil_params
+
+# Combine plots for NDRE
+ndre_plots <- lapply(ndre_results, function(x) x$plot)
+ndre_plots$ph <- ndre_plots$ph + labs(title="NDRE-response to pH by treatment")
+ndre_combined <- ggarrange(plotlist = ndre_plots, 
+                          ncol = 2, 
+                          nrow = 1,
+                          common.legend = TRUE,
+                          legend = "bottom",
+                          legend.grob = get_legend(ndre_plots[[1]] + 
+                                                 theme(legend.position = "bottom",
+                                                      legend.direction = "horizontal")))
+
+# Combine plots for NDVI
+ndvi_plots <- lapply(ndvi_results, function(x) x$plot)
+ndvi_plots$ph <- ndvi_plots$ph + labs(title="NDVI-response to pH by treatment")
+
+# Print results
+list(ndvi_plots)
+list(ndre_plots)
+print(all_results)
+
+# Print QQ plots for NDVI
+for(param in soil_params) {
+  print(ndvi_results[[param]]$qq_no_int)
+  print(ndvi_results[[param]]$qq_int)
+}
+
+# Print QQ plots for NDRE
+for(param in soil_params) {
+  print(ndre_results[[param]]$qq_no_int)
+  print(ndre_results[[param]]$qq_int)
+}
+
+```
+
+### Satellite NDRE/NDVI
+
+```{r}
+# Prepare datasets for both years
+data_2021 <- reflectance_soiloptix_largeplot25_satelite %>%
+  filter(timestamp >= start_date_sb,
+         timestamp <= end_date_sb) %>%
+  mutate(Treatment = Treatment_2021,
+         timeSinceStart = as.numeric(timestamp - start_date_sb))
+
+data_2022 <- reflectance_soiloptix_largeplot25_satelite %>%
+  filter(timestamp >= start_date_ww,
+         timestamp <= end_date_ww) %>%
+  mutate(Treatment = Treatment_2022,
+         timeSinceStart = as.numeric(timestamp - start_date_ww))
+
+# Function to fit models for both indices
+fit_models <- function(data, index, param) {
+  # Formula for models
+  formula_int <- as.formula(paste(index, "~ Treatment * timeSinceStart *", param, ""))
+  formula_no_int <- as.formula(paste(index, "~ Treatment * timeSinceStart + ", param, ""))
+  
+  # Fit models
+  model_int <- lme(formula_int,
+                  random = ~1|PLOT_ID,
+                  correlation = corAR1(form = ~timeSinceStart|PLOT_ID),
+                  data = data)
+  
+  model_no_int <- lme(formula_no_int,
+                     random = ~1|PLOT_ID,
+                     correlation = corAR1(form = ~timeSinceStart|PLOT_ID),
+                     data = data)
+  
+  # Compare models
+  comparison <- anova(model_int, model_no_int)
+  
+  return(list(
+    int = model_int,
+    no_int = model_no_int,
+    comparison = comparison
+  ))
+}
+
+# Fit models for all parameters and both indices
+params <- c("clay", "humus", "ph")
+indices <- c("NDVI", "NDRE")
+years <- list("2021" = data_2021, "2022" = data_2022)
+
+# Store all model results
+all_models <- list()
+for(year_name in names(years)) {
+  all_models[[year_name]] <- list()
+  for(index in indices) {
+    all_models[[year_name]][[index]] <- list()
+    for(param in params) {
+      all_models[[year_name]][[index]][[param]] <- 
+        fit_models(years[[year_name]], index, param)
+    }
+  }
+}
+
+# Function to create plots with updated styling
+create_index_plot <- function(data, index, year) {
+  p <- ggplot(data, aes(x = timeSinceStart, y = get(index), color = Treatment)) +
+    geom_point(alpha = 0.5) +
+    geom_smooth() +
+    facet_wrap(~cut(clay, breaks = 3),
+              labeller = labeller(
+                clay = function(x) paste("Clay Content:", x, "%")
+              )) +
+    my_theme +  # Apply your custom theme
+    labs(title = paste(year, index, "over time by Treatment and Clay Content"),
+         x = paste("Days since", ifelse(year == "2021", "April 1st, 2021", "March 30th, 2022")),
+         y = index)
+  
+  # Only add horizontal bottom legend for 2022
+  if(year == "2022") {
+    p <- p + theme(
+      legend.position = "bottom",
+      legend.direction = "horizontal",
+      legend.box = "horizontal",
+      legend.margin = margin(t = 20)  # Add some space above the legend
+    )
+  } else {
+    p <- p + theme(legend.position = "none")  # Remove legend for 2021
+  }
+  
+  return(p)
+}
+
+# Extract results for table
+extract_model_results <- function(models) {
+  results <- data.frame(
+    Index = character(),
+    Year = character(),
+    Parameter = character(),
+    L_Ratio = numeric(),
+    p_value = character(),
+    stringsAsFactors = FALSE
+  )
+  
+  for(year_name in names(models)) {
+    for(index in names(models[[year_name]])) {
+      for(param in names(models[[year_name]][[index]])) {
+        comparison <- models[[year_name]][[index]][[param]]$comparison
+        
+        results <- rbind(results, data.frame(
+          Index = index,
+          Year = year_name,
+          Parameter = case_when(
+            param == "ph" ~ "pH",
+            param == "fineSand" ~ "Fine Sand",
+            TRUE ~ str_to_title(param)
+          ),
+          L_Ratio = comparison$L.Ratio[2],
+          p_value = ifelse(comparison$`p-value`[2] < 0.001,
+                          "< 0.001",
+                          sprintf("%.3f", comparison$`p-value`[2]))
+        ))
+      }
+    }
+  }
+  
+  return(results)
+}
+
+# Create and format table
+model_results <- extract_model_results(all_models) %>%
+  mutate(
+    H_0 = "Reflectance ~ Treatment × Time + Parameter",
+    H_1 = "Reflectance ~ Treatment × time × Parameter"
+  )
+
+
+print(model_results)
+
+# comparison results for each case
+for(year_name in names(all_models)) {
+  for(index in indices) {
+    for(param in params) {
+      print(all_models[[year_name]][[index]][[param]]$comparison)
+    }
+  }
+}
+
+# Create and print QQ plots for model diagnostics
+for(year_name in names(all_models)) {
+  for(index in indices) {
+    for(param in params) {
+      # QQ plot for model with interaction
+      qq_int <- ggplot(data.frame(resid = residuals(all_models[[year_name]][[index]][[param]]$int)), 
+                      aes(sample = resid)) +
+        stat_qq() +
+        stat_qq_line() +
+        labs(title = paste(index, year_name, param, "- Model with interaction"),
+             x = "Theoretical Quantiles",
+             y = "Sample Quantiles")
+      print(qq_int)
+      
+      # QQ plot for model without interaction
+      qq_no_int <- ggplot(data.frame(resid = residuals(all_models[[year_name]][[index]][[param]]$no_int)), 
+                         aes(sample = resid)) +
+        stat_qq() +
+        stat_qq_line() +
+        labs(title = paste(index, year_name, param, "- Model without interaction"),
+             x = "Theoretical Quantiles",
+             y = "Sample Quantiles")
+      print(qq_no_int)
+    }
+  }
+}
+
+# Print summary of a few example models
+print(summary(all_models[["2022"]][["NDVI"]][["clay"]]$int))
+print(summary(all_models[["2022"]][["NDRE"]][["clay"]]$int))
+print(summary(all_models[["2022"]][["NDVI"]][["ph"]]$int))
+print(summary(all_models[["2022"]][["NDRE"]][["ph"]]$int))
+print(summary(all_models[["2022"]][["NDVI"]][["humus"]]$int))
+print(summary(all_models[["2022"]][["NDRE"]][["humus"]]$int))
+
+# Create and print main plots
+for(year_name in names(years)) {
+  for(index in indices) {
+    for(param in params) {
+    main_plot <- create_index_plot(years[[year_name]], index, year_name)
+    print(main_plot)
+  }
+}}
+
+# Create and print residual plots
+for(year_name in names(all_models)) {
+  for(index in indices) {
+    for(param in params) {
+      # Residual plot for model with interaction
+      res_int <- ggplot(data.frame(
+        fitted = fitted(all_models[[year_name]][[index]][[param]]$int),
+        resid = residuals(all_models[[year_name]][[index]][[param]]$int),
+        Treatment = years[[year_name]]$Treatment), 
+        aes(x = fitted, y = resid, color = Treatment)) +
+        geom_point(alpha = 0.5) +
+        geom_smooth(method = "loess", se = FALSE) +
+        geom_hline(yintercept = 0, linetype = "dashed") +
+        scale_color_manual(values = treatment_colors) +
+        my_theme +
+        labs(title = paste(index, year_name, param, "- Residuals (with interaction)"),
+             x = "Fitted values",
+             y = "Residuals")
+      print(res_int)
+      
+      # Residual plot for model without interaction
+      res_no_int <- ggplot(data.frame(
+        fitted = fitted(all_models[[year_name]][[index]][[param]]$no_int),
+        resid = residuals(all_models[[year_name]][[index]][[param]]$no_int),
+        Treatment = years[[year_name]]$Treatment), 
+        aes(x = fitted, y = resid, color = Treatment)) +
+        geom_point(alpha = 0.5) +
+        geom_smooth(method = "loess", se = FALSE) +
+        geom_hline(yintercept = 0, linetype = "dashed") +
+        scale_color_manual(values = treatment_colors) +
+        my_theme +
+        labs(title = paste(index, year_name, param, "- Residuals (without interaction)"),
+             x = "Fitted values",
+             y = "Residuals")
+      print(res_no_int)
+    }
+  }
+}
+```
+
+## Method validation
+
+### Correlating drone and satellite data 
+
+```{r}
+# Helper function to format dates consistently
+format_date <- function(d) {
+  if(is.numeric(d)) {
+    return(ymd(as.character(d)))
+  } else if(is.Date(d)) {
+    return(d)
+  }
+}
+
+# Field 25 NDVI
+field25_sat_ndvi <- reflectance_soiloptix_largeplot25_satelite %>%
+  dplyr::select(PLOT_ID, timestamp, NDVI) %>%
+  mutate(sat_date = format_date(timestamp)) %>%
+  rename(satellite_ndvi = NDVI)
+
+field25_uav_ndvi <- ndvi_uav_field25 %>%
+  mutate(uav_date = format_date(date))
+
+
+# Join 
+field25_ndvi_comparison <- field25_uav_ndvi %>%
+  inner_join(field25_sat_ndvi, by = "PLOT_ID") %>%
+  group_by(PLOT_ID, uav_date) %>%
+  slice_min(order_by = abs(as.numeric(sat_date - uav_date)), n = 1) %>%
+  ungroup()
+
+# plotting function with statistics
+plot_with_stats <- function(data, x_var, y_var, title) {
+  # linear model
+  lm_fit <- lm(as.formula(paste(y_var, "~", x_var)), data = data)
+  
+  #  statistics
+  slope <- round(coef(lm_fit)[2], 3)
+  r_squared <- round(summary(lm_fit)$r.squared, 3)
+  p_value <- round(summary(lm_fit)$coefficients[2,4], 3)
+  
+  #  annotation text
+  stats_text <- sprintf("Slope = %s\nR² = %s\np-value = %s", 
+                       slope, r_squared, 
+                       ifelse(p_value < 0.001, "< 0.001", p_value))
+  
+  ggplot(data, aes(x = .data[[x_var]], y = .data[[y_var]])) +
+    geom_point(aes(color = as.factor(uav_date))) +
+    geom_smooth(method = "lm", se = FALSE) +
+    annotate("text", x = min(data[[x_var]]), 
+             y = max(data[[y_var]]), 
+             label = stats_text,
+             hjust = 0, vjust = 1,
+             size = 8) +
+    labs(title = title,
+         x = stringr::str_replace(x_var, "mean", "UAV"),
+         y = stringr::str_replace(y_var, "satellite_", "Satellite "),
+         color = "UAV Date") +
+    theme_minimal()+
+    theme(legend.text = element_text(size = 18))
+}
+
+#  first plot
+p1 <- plot_with_stats(field25_ndvi_comparison, "mean", "satellite_ndvi", 
+                      "Large-plot trial - NDVI Correlation")
+
+# Field 25 NDRE
+field25_sat_ndre <- reflectance_soiloptix_largeplot25_satelite %>%
+  dplyr::select(PLOT_ID, timestamp, NDRE) %>%
+  mutate(sat_date = format_date(timestamp)) %>%
+  rename(satellite_ndre = NDRE)
+
+field25_uav_ndre <- ndre_uav_field25 %>%
+  mutate(uav_date = format_date(date))
+
+field25_ndre_comparison <- field25_uav_ndre %>%
+  inner_join(field25_sat_ndre, by = "PLOT_ID") %>%
+  group_by(PLOT_ID, uav_date) %>%
+  slice_min(order_by = abs(as.numeric(sat_date - uav_date)), n = 1) %>%
+  ungroup()
+
+# Create remaining plots
+p2 <- plot_with_stats(field25_ndre_comparison, "mean", "satellite_ndre", 
+                      "Large-plot trial - NDRE Correlation")
+
+# Field 26 NDVI
+field26_sat_ndvi <- reflectance_soiloptix_26_satelite %>%
+  dplyr::select(PLOT_ID, timestamp, NDVI_mean) %>%
+  mutate(sat_date = format_date(timestamp)) %>%
+  rename(satellite_ndvi = NDVI_mean)
+
+field26_uav_ndvi <- bind_rows(
+  ndvi_uav_field26,
+  ndvi_uav_field26_residual
+) %>%
+  mutate(uav_date = format_date(date))
+
+field26_ndvi_comparison <- field26_uav_ndvi %>%
+  inner_join(field26_sat_ndvi, by = "PLOT_ID") %>%
+  group_by(PLOT_ID, uav_date) %>%
+  slice_min(order_by = abs(as.numeric(sat_date - uav_date)), n = 1) %>%
+  ungroup()
+
+p3 <- plot_with_stats(field26_ndvi_comparison, "mean", "satellite_ndvi", 
+                      "Small-plot trial - NDVI Correlation")
+
+# Field 26 NDRE
+field26_sat_ndre <- reflectance_soiloptix_26_satelite %>%
+  dplyr::select(PLOT_ID, timestamp, NDRE_mean) %>%
+  mutate(sat_date = format_date(timestamp)) %>%
+  rename(satellite_ndre = NDRE_mean)
+
+field26_uav_ndre <- bind_rows(
+  ndre_uav_field26,
+  ndre_uav_field26_residual
+) %>%
+  mutate(uav_date = format_date(date))
+
+field26_ndre_comparison <- field26_uav_ndre %>%
+  inner_join(field26_sat_ndre, by = "PLOT_ID") %>%
+  group_by(PLOT_ID, uav_date) %>%
+  slice_min(order_by = abs(as.numeric(sat_date - uav_date)), n = 1) %>%
+  ungroup()
+
+p4 <- plot_with_stats(field26_ndre_comparison, "mean", "satellite_ndre", 
+                      "Small-plot trial - NDRE Correlation")
+
+# Remove individual legends
+p1 <- p1 + my_theme 
+p2 <- p2 + my_theme 
+p3 <- p3 + my_theme
+p4 <- p4 + my_theme 
+
+print(p1)
+print(p2)
+print(p3)
+print(p4)
+```
+
+Correlating with harvest data UAV
+
+```{r}
+ndre_data25 <- read_csv(here("data", "ndre_data25.csv"))
+ndvi_data25 <- read_csv(here("data", "ndvi_data25.csv"))
+ndre_data25_uav <- read_csv(here("data", "ndre_uav_field25.csv"))
+ndvi_data25_uav <- read_csv(here("data", "ndvi_uav_field25.csv"))
+ndvi_data26 <- read_csv(here("data", "ndvi_data26.csv")) 
+ndvi_data26_residual <- read_csv(here("data", "ndvi_data26_residual.csv"))
+ndre_data26 <- read_csv(here("data", "ndre_data26.csv")) 
+ndre_data26_residual <- read_csv(here("data", "ndre_data26_residual.csv"))
+ndre_data26 <- read_csv(here("data", "ndre_data26.csv")) 
+ndvi_uav_field26 <- read_csv(here("data", "ndvi_uav_field26.csv"))
+ndvi_uav_field26_residual <- read_csv(here("data", "ndvi_uav_field26_residual.csv"))
+voronoi_withinlargeplots_25 <- read_csv(here("data","voronoi_withinlargeplots_25_2_UAV.csv"))
+voronoi_within_smallplot_full_26_nonresdata <- read_csv(here("data","voronoi_within_smallplot_full_26_nonresdata.csv"))
+reflectance_soiloptix_largeplot25_satelite <- read_csv(here("data","reflectance_soiloptix_largeplot25_satelite.csv"))
+
+ndvi_uav_field25 <- read_csv(here("data", "ndvi_uav_field25.csv"))
+ndre_uav_field25 <- read_csv(here("data", "ndre_uav_field25.csv"))
+ndvi_uav_field26 <- read_csv(here("data", "ndvi_uav_field26.csv"))
+ndre_uav_field26 <- read_csv(here("data", "ndre_uav_field26.csv"))
+ndre_uav_field26_residual <- read_csv(here("data", "ndre_uav_field26_residual.csv"))
+ndvi_uav_field26_residual <- read_csv(here("data", "ndvi_uav_field26_residual.csv"))
+reflectance_soiloptix_26_satelite <- read_csv(here("data", "reflectance_soiloptix_26.csv"))
+reflectance_soiloptix_26_res_sat <- read_csv(here("data", "reflectance_soiloptix_26_res_sat.csv"))
+harvest_field25 <- read_csv(here("data", "harvest_field25.csv"))
+harvest_field26 <- read_csv(here("data", "harvest_field26.csv"))
+ndre_data25_2 <- read_csv(here("data", "ndre_data25_2.csv"))
+ndvi_data25_2 <- read_csv(here("data", "ndvi_data25_2.csv"))
+```
+
+```{r}
+ #Functi 25 data
+process_field25 <- function(ndvi_data, ndre_data, harvest_data) {
+  ndvi_data <- ndvi_data %>%
+    mutate(date = as.Date(as.character(date), format = "%Y%m%d")) %>%
+    dplyr::select(PLOT_ID, date, NDVI_mean = mean)
+  
+  ndre_data <- ndre_data %>%
+    mutate(date = as.Date(as.character(date), format = "%Y%m%d")) %>%
+    dplyr::select(PLOT_ID, date, NDRE_mean = mean)
+  
+  field25 <- ndvi_data %>%
+    left_join(ndre_data, by = c("PLOT_ID", "date")) %>%
+    left_join(
+      harvest_data %>%
+        dplyr::select(
+          PLOT_ID,
+          harvest_2021 = `Harvest 06-08-2021 harvestable (grain) yield 15 % moisture (kg/ha)`,
+          harvest_2022 = `Harvest 11-08-2022 harvestable (grain) yield 15 % moisture (kg/ha)`
+        ),
+      by = "PLOT_ID"
+    )
+  
+  return(field25)
+}
+
+# Function 26 data
+process_field26 <- function(ndvi_data, ndre_data, harvest_data) {
+  ndvi_data <- ndvi_data %>%
+    mutate(date = as.Date(as.character(date), format = "%Y%m%d")) %>%
+    dplyr::select(PLOT_ID, date, NDVI_mean = mean)
+  
+  ndre_data <- ndre_data %>%
+    mutate(date = as.Date(as.character(date), format = "%Y%m%d")) %>%
+    dplyr::select(PLOT_ID, date, NDRE_mean = mean)
+  
+  field26 <- ndvi_data %>%
+    left_join(ndre_data, by = c("PLOT_ID", "date")) %>%
+    left_join(
+      harvest_data %>%
+        dplyr::select(
+          PLOT_ID,
+          harvest_2021 = `Harvest 06-08-2021 harvestable (grain) yield 15 % moisture (kg/ha)`,
+          harvest_2022 = `Harvest 11-08-2022 harvestable (grain) yield 15 % moisture (kg/ha)`,
+          biomass_2021 = `16-11-2021 Biomass dryweight (kg/ha)`,
+          biomass_2022 = `Anthesis 31-05-2022 Biomass dryweight (kg/ha)`
+        ),
+      by = "PLOT_ID"
+    )
+  
+  return(field26)
+}
+
+create_relationship_plot <- function(data, y_col, x_col, x_label, y_label, trial_name) {
+  y_sym <- sym(y_col)
+  x_sym <- sym(x_col)
+  
+  plot_data <- data %>%
+    filter(date == as.Date("2022-05-17")) %>%
+    drop_na(!!y_sym, !!x_sym)
+  
+  model_formula <- as.formula(paste(y_col, "~", x_col))
+  model <- lm(model_formula, data = plot_data)
+  model_summary <- summary(model)
+  
+  r_squared <- model_summary$r.squared
+  p_value <- anova(model)$`Pr(>F)`[1]
+  
+  # Format p-value
+  p_value_text <- if(p_value < 0.001) {
+    "p < 0.001"
+  } else if(p_value < 0.01) {
+    "p < 0.01"
+  } else if(p_value < 0.05) {
+    "p < 0.05"
+  } else {
+    sprintf("p = %.3f", p_value)
+  }
+  
+  correlation <- cor(plot_data[[y_col]], plot_data[[x_col]])
+  slope <- coef(model)[2]
+  
+  p <- ggplot(plot_data, aes(x = !!x_sym, y = !!y_sym)) +
+    geom_point(alpha = 0.6) +
+    geom_smooth(method = "lm", color = "blue") +
+    labs(
+      x = paste("UAV", x_label),
+      y = y_label,
+      title = paste(trial_name, "-", y_label, "vs", "UAV", x_label),
+      subtitle = sprintf(
+        "Slope: %.2f, Correlation: %.3f, %s",
+        slope, r_squared, p_value_text  # Changed to use p_value_text
+      )
+    ) +
+    theme_minimal() +
+    theme(
+      plot.title = element_text(size = 12),
+      plot.subtitle = element_text(size =12)
+    )
+  
+  return(list(plot = p, stats = list(
+    slope = slope,
+    r_squared = r_squared,
+    correlation = correlation,
+    p_value = p_value
+  )))
+}
+
+# Process data
+field25 <- process_field25(ndvi_uav_field25, ndre_uav_field25, harvest_field25)
+field26 <- process_field26(ndvi_uav_field26, ndre_uav_field26, harvest_field26)
+
+# plots for Large-plot trial
+field25_plots <- list(
+  ndvi_yield = create_relationship_plot(
+    field25, "harvest_2022", "NDVI_mean",
+    "NDVI (May 17, 2022)", "Harvest Yield 2022 (kg/ha)",
+    "Large-plot trial"
+  ),
+  ndre_yield = create_relationship_plot(
+    field25, "harvest_2022", "NDRE_mean",
+    "NDRE (May 17, 2022)", "Harvest Yield 2022 (kg/ha)",
+    "Large-plot trial"
+  )
+)
+
+# Create plots for Small-plot trial (Field 26)
+field26_plots <- list(
+  ndvi_yield = create_relationship_plot(
+    field26, "harvest_2022", "NDVI_mean",
+    "NDVI (May 17, 2022)", "Harvest Yield 2022 (kg/ha)",
+    "Small-plot trial"
+  ),
+  ndre_yield = create_relationship_plot(
+    field26, "harvest_2022", "NDRE_mean",
+    "NDRE (May 17, 2022)", "Harvest Yield 2022 (kg/ha)",
+    "Small-plot trial"
+  ),
+  ndvi_biomass = create_relationship_plot(
+    field26, "biomass_2022", "NDVI_mean",
+    "NDVI (May 17, 2022)", "Biomass 2022 (kg/ha)",
+    "Small-plot trial"
+  ),
+  ndre_biomass = create_relationship_plot(
+    field26, "biomass_2022", "NDRE_mean",
+    "NDRE (May 17, 2022)", "Biomass 2022 (kg/ha)",
+    "Small-plot trial"
+  )
+)
+
+# Print all plots
+print(field25_plots$ndvi_yield$plot)
+print(field25_plots$ndre_yield$plot)
+print(field26_plots$ndvi_yield$plot)
+print(field26_plots$ndre_yield$plot)
+print(field26_plots$ndvi_biomass$plot)
+print(field26_plots$ndre_biomass$plot)
+
+# Create summary statistics table
+stats_table <- data.frame(
+  Trial = c(
+    rep("Large-plot", 2),
+    rep("Small-plot", 4)
+  ),
+  Relationship = c(
+    "NDVI vs Yield",
+    "NDRE vs Yield",
+    "NDVI vs Yield",
+    "NDRE vs Yield",
+    "NDVI vs Biomass",
+    "NDRE vs Biomass"
+  ),
+  R_squared = c(
+    field25_plots$ndvi_yield$stats$r_squared,
+    field25_plots$ndre_yield$stats$r_squared,
+    field26_plots$ndvi_yield$stats$r_squared,
+    field26_plots$ndre_yield$stats$r_squared,
+    field26_plots$ndvi_biomass$stats$r_squared,
+    field26_plots$ndre_biomass$stats$r_squared
+  ),
+  P_value = c(
+    field25_plots$ndvi_yield$stats$p_value,
+    field25_plots$ndre_yield$stats$p_value,
+    field26_plots$ndvi_yield$stats$p_value,
+    field26_plots$ndre_yield$stats$p_value,
+    field26_plots$ndvi_biomass$stats$p_value,
+    field26_plots$ndre_biomass$stats$p_value
+  ),
+  Slope = c(
+    field25_plots$ndvi_yield$stats$slope,
+    field25_plots$ndre_yield$stats$slope,
+    field26_plots$ndvi_yield$stats$slope,
+    field26_plots$ndre_yield$stats$slope,
+    field26_plots$ndvi_biomass$stats$slope,
+    field26_plots$ndre_biomass$stats$slope
+  )
+)
+
+# Format table
+stats_table <- stats_table %>%
+  mutate(
+    R_squared = round(R_squared, 3),
+    P_value = case_when(
+      P_value < 0.001 ~ "< 0.001",
+      P_value < 0.01 ~ "< 0.01",
+      P_value < 0.05 ~ "< 0.05",
+      TRUE ~ sprintf("%.3f", P_value)
+    ),
+    Slope = round(Slope, 2)
+  )
+
+# Print formatted table
+print(knitr::kable(stats_table, format = "markdown"))
+```
+
+### Correlating with harvest data Sat
+
+#### Code used for the thesis 26
+
+This code actually takes the individual max NDVI for individual treatments, and are wrong
+
+```{r}
+# Funcmaximum index ate
+get_max_index <- function(data, target_date) {
+  # Date 
+  target_date <- as.Date(target_date)
+  
+  # Group by PLOT_ID and find maximum index before target date
+  max_indices <- data %>%
+    filter(as.Date(timestamp) <= target_date) %>%
+    group_by(PLOT_ID) %>%
+    summarize(
+      max_index = max(mean, na.rm = TRUE),
+      date_max = timestamp[which.max(mean)],
+      Treatment = first(Treatment),
+      Year_estab = first(Year_estab),
+      .groups = 'drop'
+    )
+  
+  return(max_indices)
+}
+
+# Function to create scatter plot
+create_single_scatter_plot <- function(data, target_date, biomass_col, estab_year, index_type="NDVI") {
+  # Filter establishment observation year
+  obs_year <- as.numeric(format(as.Date(target_date), "%Y"))
+  
+  plot_data <- data %>%
+    filter(Year_estab == estab_year,
+           Year_obs == obs_year)
+  
+  #  maximum values beforedate
+  max_index_data <- get_max_index(plot_data, target_date)
+  
+  # biomass values per plot
+  biomass_data <- plot_data %>%
+    dplyr::select(PLOT_ID, !!sym(biomass_col)) %>%
+    distinct()
+  
+  # Combine index and biomass data
+  plot_data <- max_index_data %>%
+    inner_join(biomass_data, by = "PLOT_ID")
+  
+  # Remove NA values
+  plot_data <- na.omit(plot_data)
+  
+  # Calculate statistics 
+  if(nrow(plot_data) >= 3) {
+    # Fit model and get statistics
+    model <- lm(get(biomass_col) ~ max_index, data = plot_data)
+    r_squared <- round(summary(model)$r.squared, 3)
+    correlation <- round(cor(plot_data$max_index, plot_data[[biomass_col]]), 3)
+    p_value <- summary(model)$coefficients[2,4]  # Removed rounding
+    slope <- round(coef(model)[2], 0)
+    
+    # Format dates
+    target_date_str <- format(as.Date(target_date), "%d %B %Y")
+    max_index_date <- format(as.Date(names(which.max(table(plot_data$date_max)))), "%d %B %Y")
+    
+    #  harvest yield or biomass based on the target date
+    target_month <- format(as.Date(target_date), "%m")
+    measurement_type <- if(target_month == "08") "Harvest Yield" else "Biomass"
+    
+    # Format p-value with thresholds
+    p_value_text <- if(p_value < 0.001) {
+        "p < 0.001"
+    } else if(p_value < 0.01) {
+        "p < 0.01"
+    } else if(p_value < 0.05) {
+        "p < 0.05"
+    } else {
+        sprintf("p = %.3f", p_value)
+    }
+    
+    p <- ggplot(plot_data, aes(x = max_index, y = .data[[biomass_col]], color = Treatment)) +
+      geom_point(alpha = 0.6, size = 3) +
+      geom_smooth(method = "lm", color = "black", se = TRUE, linewidth = 1) +
+      theme_minimal() +
+      scale_color_manual(values = treatment_colors) +
+      labs(
+        title = paste(index_type, "vs", measurement_type, "-", "Establishment Year:", estab_year),
+        subtitle = paste0(
+          "Max ", index_type, " from: ", max_index_date, "  |  ",
+          measurement_type, " from: ", target_date_str, "\n",
+          "R² = ", r_squared, "  |  ",
+          p_value_text, "  |  ",  # Changed to use p_value_text directly
+          "Correlation = ", correlation
+        ),
+        x = paste("Maximum", index_type),
+        y = paste(measurement_type, "(kg/ha)")
+      ) +
+      theme(
+        plot.title = element_text(size = 11, face = "bold"),
+        plot.subtitle = element_text(size = 9),
+        axis.title = element_text(size = 10),
+        legend.position = "bottom",
+        plot.margin = margin(t = 10, r = 10, b = 10, l = 10)
+      )
+    
+    return(p)
+  }
+}
+
+# Define analysis pairs
+analysis_pairs <- list(
+  list(
+    date = "2021-06-23",
+    biomass = "Anthesis_23062021_Biomass_dryweight_kgha",
+    estab_year = 2021
+  ),
+  list(
+    date = "2021-08-06",
+    biomass = "Harvest_06082021_harvestable_grain_yield_15_moisture_kgha",
+    estab_year = 2021
+  ),
+  list(
+    date = "2022-05-31",
+    biomass = "Anthesis_31052022_Biomass_dryweight_kgha",
+    estab_year = 2022
+  ),
+  list(
+    date = "2022-08-11",
+    biomass = "Harvest_11082022_harvestable_grain_yield_15_moisture_kgha",
+    estab_year = 2022
+  )
+)
+
+#  plots  NDVI and NDRE
+ndvi_plots <- list()
+ndre_plots <- list()
+
+for(pair in analysis_pairs) {
+  # Create plot names
+  plot_name <- paste0(
+    "plot_",
+    gsub("-", "_", pair$date),
+    "_estab_",
+    pair$estab_year
+  )
+  
+  # Create NDVI plot
+  ndvi_plots[[plot_name]] <- create_single_scatter_plot(
+    ndvi_data26,
+    pair$date,
+    pair$biomass,
+    pair$estab_year,
+    "NDVI"
+  )
+  
+  # Create NDRE plot
+  ndre_plots[[plot_name]] <- create_single_scatter_plot(
+    ndre_data26,
+    pair$date,
+    pair$biomass,
+    pair$estab_year,
+    "NDRE"
+  )
+}
+
+# all plots
+all_plots <- c(ndvi_plots, ndre_plots)
+
+# Print summary of maximum index dates for each analysis
+for(pair in analysis_pairs) {
+  #  yield or biomass based on the target date
+  target_month <- format(as.Date(pair$date), "%m")
+  measurement_type <- if(target_month == "08") "Harvest Yield" else "Biomass"
+  
+  cat("\nNDVI Analysis for", measurement_type, "(Establishment Year:", pair$estab_year, "):\n")
+  filtered_ndvi <- ndvi_data26 %>% 
+    filter(Year_estab == pair$estab_year,
+           Year_obs == as.numeric(format(as.Date(pair$date), "%Y")))
+  max_ndvi_data <- get_max_index(filtered_ndvi, pair$date)
+  cat("NDVI measurement dates:\n")
+  print(table(max_ndvi_data$date_max))
+  
+  cat("\nNDRE Analysis for", measurement_type, "(Establishment Year:", pair$estab_year, "):\n")
+  filtered_ndre <- ndre_data26 %>% 
+    filter(Year_estab == pair$estab_year,
+           Year_obs == as.numeric(format(as.Date(pair$date), "%Y")))
+  max_ndre_data <- get_max_index(filtered_ndre, pair$date)
+  cat("NDRE measurement dates:\n")
+  print(table(max_ndre_data$date_max))
+}
+print(all_plots)
+```
+
+This is the corrected code - field 26
+
+```{r}
+# Function to get index values from the date with highest average index
+get_max_index <- function(data, target_date) {
+  # Convert target date
+  target_date <- as.Date(target_date)
+  
+  # First find the date with highest average index across all treatments
+  peak_date <- data %>%
+    filter(as.Date(timestamp) <= target_date) %>%
+    group_by(timestamp) %>%
+    summarize(avg_index = mean(mean, na.rm = TRUE)) %>%
+    slice_max(avg_index, n = 1) %>%
+    pull(timestamp)
+  
+  # Then get the index values from that specific date
+  index_values <- data %>%
+    filter(timestamp == peak_date) %>%
+    group_by(PLOT_ID) %>%
+    summarize(
+      max_index = mean(mean, na.rm = TRUE),  # using mean in case of multiple measurements on same date
+      date_max = first(timestamp),
+      Treatment = first(Treatment),
+      Year_estab = first(Year_estab),
+      .groups = 'drop'
+    )
+  
+  return(index_values)
+}
+
+# Function to create scatter plot
+create_single_scatter_plot <- function(data, target_date, biomass_col, estab_year, index_type="NDVI") {
+  # Filter establishment observation year
+  obs_year <- as.numeric(format(as.Date(target_date), "%Y"))
+  
+  plot_data <- data %>%
+    filter(Year_estab == estab_year,
+           Year_obs == obs_year)
+  
+  #  maximum values beforedate
+  max_index_data <- get_max_index(plot_data, target_date)
+  
+  # biomass values per plot
+  biomass_data <- plot_data %>%
+    dplyr::select(PLOT_ID, !!sym(biomass_col)) %>%
+    distinct()
+  
+  # Combine index and biomass data
+  plot_data <- max_index_data %>%
+    inner_join(biomass_data, by = "PLOT_ID")
+  
+  # Remove NA values
+  plot_data <- na.omit(plot_data)
+  
+  # Calculate statistics 
+  if(nrow(plot_data) >= 3) {
+    # Fit model and get statistics
+    model <- lm(get(biomass_col) ~ max_index, data = plot_data)
+    r_squared <- round(summary(model)$r.squared, 3)
+    correlation <- round(cor(plot_data$max_index, plot_data[[biomass_col]]), 3)
+    p_value <- summary(model)$coefficients[2,4]  # Removed rounding
+    slope <- round(coef(model)[2], 0)
+    
+    # Format dates
+    target_date_str <- format(as.Date(target_date), "%d %B %Y")
+    max_index_date <- format(as.Date(names(which.max(table(plot_data$date_max)))), "%d %B %Y")
+    
+    # Determine if this is harvest yield or biomass based on the target date
+    target_month <- format(as.Date(target_date), "%m")
+    measurement_type <- if(target_month == "08") "Harvest Yield" else "Biomass"
+    
+    # Format p-value with thresholds
+    p_value_text <- if(p_value < 0.001) {
+        "p < 0.001"
+    } else if(p_value < 0.01) {
+        "p < 0.01"
+    } else if(p_value < 0.05) {
+        "p < 0.05"
+    } else {
+        sprintf("p = %.3f", p_value)
+    }
+    
+    p <- ggplot(plot_data, aes(x = max_index, y = .data[[biomass_col]], color = Treatment)) +
+      geom_point(alpha = 0.6, size = 3) +
+      geom_smooth(method = "lm", color = "black", se = TRUE, linewidth = 1) +
+      theme_minimal() +
+      scale_color_manual(values = treatment_colors) +
+      labs(
+        title = paste(index_type, "vs", measurement_type, "-", "Establishment Year:", estab_year),
+        subtitle = paste0(
+          "Max ", index_type, " from: ", max_index_date, "  |  ",
+          measurement_type, " from: ", target_date_str, "\n",
+          "R² = ", r_squared, "  |  ",
+          p_value_text, "  |  ",  # Changed to use p_value_text directly
+          "Correlation = ", correlation
+        ),
+        x = paste("Maximum", index_type),
+        y = paste(measurement_type, "(kg/ha)")
+      ) +
+      theme(
+        plot.title = element_text(size = 11, face = "bold"),
+        plot.subtitle = element_text(size = 9),
+        axis.title = element_text(size = 10),
+        legend.position = "bottom",
+        plot.margin = margin(t = 10, r = 10, b = 10, l = 10)
+      )
+    
+    return(p)
+  }
+}
+
+# Define analysis pairs
+analysis_pairs <- list(
+  list(
+    date = "2021-06-23",
+    biomass = "Anthesis_23062021_Biomass_dryweight_kgha",
+    estab_year = 2021
+  ),
+  list(
+    date = "2021-08-06",
+    biomass = "Harvest_06082021_harvestable_grain_yield_15_moisture_kgha",
+    estab_year = 2021
+  ),
+  list(
+    date = "2022-05-31",
+    biomass = "Anthesis_31052022_Biomass_dryweight_kgha",
+    estab_year = 2022
+  ),
+  list(
+    date = "2022-08-11",
+    biomass = "Harvest_11082022_harvestable_grain_yield_15_moisture_kgha",
+    estab_year = 2022
+  )
+)
+
+#  plots  NDVI and NDRE
+ndvi_plots <- list()
+ndre_plots <- list()
+
+for(pair in analysis_pairs) {
+  # Create plot names
+  plot_name <- paste0(
+    "plot_",
+    gsub("-", "_", pair$date),
+    "_estab_",
+    pair$estab_year
+  )
+  
+  # Create NDVI plot
+  ndvi_plots[[plot_name]] <- create_single_scatter_plot(
+    ndvi_data26,
+    pair$date,
+    pair$biomass,
+    pair$estab_year,
+    "NDVI"
+  )
+  
+  # Create NDRE plot
+  ndre_plots[[plot_name]] <- create_single_scatter_plot(
+    ndre_data26,
+    pair$date,
+    pair$biomass,
+    pair$estab_year,
+    "NDRE"
+  )
+}
+
+# all plots
+all_plots <- c(ndvi_plots, ndre_plots)
+
+# Print summary of maximum index dates for each analysis
+for(pair in analysis_pairs) {
+  # Determine if this is harvest yield or biomass based on the target date
+  target_month <- format(as.Date(pair$date), "%m")
+  measurement_type <- if(target_month == "08") "Harvest Yield" else "Biomass"
+  
+  cat("\nNDVI Analysis for", measurement_type, "(Establishment Year:", pair$estab_year, "):\n")
+  filtered_ndvi <- ndvi_data26 %>% 
+    filter(Year_estab == pair$estab_year,
+           Year_obs == as.numeric(format(as.Date(pair$date), "%Y")))
+  max_ndvi_data <- get_max_index(filtered_ndvi, pair$date)
+  cat("NDVI measurement dates:\n")
+  print(table(max_ndvi_data$date_max))
+  
+  cat("\nNDRE Analysis for", measurement_type, "(Establishment Year:", pair$estab_year, "):\n")
+  filtered_ndre <- ndre_data26 %>% 
+    filter(Year_estab == pair$estab_year,
+           Year_obs == as.numeric(format(as.Date(pair$date), "%Y")))
+  max_ndre_data <- get_max_index(filtered_ndre, pair$date)
+  cat("NDRE measurement dates:\n")
+  print(table(max_ndre_data$date_max))
+}
+print(all_plots)
+```
+
+#### Harvest largeplot trial 
+
+```{r}
+# Function to create annotation text with stats
+create_stats_annotation <- function(data, x_var, y_var) {
+  df <- data.frame(
+    x = data[[x_var]],
+    y = data[[y_var]]
+  )
+  
+  lm_model <- lm(y ~ x, data = df)
+  
+  correlation <- cor(df$x, df$y)  # Calculate correlation
+  slope <- coef(lm_model)[2]
+  p_value <- summary(lm_model)$coefficients[2,4]
+  
+  # Format p-value with thresholds
+  p_value_text <- if(p_value < 0.001) {
+    "p < 0.001"
+  } else if(p_value < 0.01) {
+    "p < 0.01"
+  } else if(p_value < 0.05) {
+    "p < 0.05"
+  } else {
+    sprintf("p = %.3f", p_value)
+  }
+  
+  annotation <- sprintf(
+    "Correlation = %.3f\nSlope = %.3f\n%s",
+    correlation, slope, p_value_text
+  )
+  
+  return(annotation)
+}
+
+# Function to analyze vegetation indices
+create_ndvi_analysis <- function(data, input_name) {
+  data$timestamp <- as.Date(data$timestamp)
+  
+  daily_means <- data %>%
+    group_by(timestamp) %>%
+    summarise(daily_mean = mean(mean, na.rm = TRUE)) %>%
+    arrange(desc(daily_mean))
+  
+  peak_date_2021 <- daily_means %>%
+    filter(year(timestamp) == 2021) %>%
+    slice(1) %>%
+    pull(timestamp)
+  
+  peak_date_2022 <- daily_means %>%
+    filter(year(timestamp) == 2022) %>%
+    slice(1) %>%
+    pull(timestamp)
+  
+  areas <- data %>%
+    group_by(PLOT_ID) %>%
+    summarise(
+      peak_value_2021 = mean(mean[timestamp == peak_date_2021], na.rm = TRUE),
+      peak_value_2022 = mean(mean[timestamp == peak_date_2022], na.rm = TRUE),
+      
+      Treatment_2021 = first(Treatment_2021),
+      Treatment_2022 = first(Treatment_2022),
+      Block_a = first(Block_a),
+      Block_b = first(Block_b),
+      
+      Harvest_2021 = first(Harvest_06082021_harvestable_grain_yield_15_moisture_kgha),
+      Harvest_2022 = first(Harvest_11082022_harvestable_grain_yield_15_moisture_kgha),
+      
+      plot_number = first(plot_number),
+      country.x = first(country.x)
+    )
+  
+  new_name <- paste0(input_name, "_analysis")
+  assign(new_name, areas, envir = .GlobalEnv)
+  write.csv(areas, file = paste0(new_name, ".csv"), row.names = FALSE)
+  
+  cat("Peak dates used:\n")
+  cat("2021:", as.character(peak_date_2021), "\n")
+  cat("2022:", as.character(peak_date_2022), "\n")
+  
+  return(list(data = areas, peak_dates = list(peak_2021 = peak_date_2021, peak_2022 = peak_date_2022)))
+}
+
+# Run analyses
+ndvi_results <- create_ndvi_analysis(ndvi_data25_2, "ndvi_data25_2")
+ndre_results <- create_ndvi_analysis(ndre_data25_2, "ndre_data25_2")
+
+# Create NDVI plots
+ndvi_p1 <- ggplot(ndvi_results$data, aes(x = peak_value_2021, y = Harvest_2021)) +
+  geom_point(aes(color = Treatment_2021), size = 3, alpha = 0.7) +
+  geom_smooth(method = "lm", se = TRUE, color = "black", linetype = "dashed") +
+  scale_color_manual(values = treatment_colors, labels = treatment_labels_lp) +
+  labs(title = "2021 Peak NDVI vs Harvest Yield",
+       x = paste0("NDVI on ", ndvi_results$peak_dates$peak_2021),
+       y = "Harvest Yield 2021 (kg/ha)",
+       color = "Treatment") +
+  my_theme +
+  theme(legend.position = "none") +
+  annotate("text", 
+           x = min(ndvi_results$data$peak_value_2021, na.rm = TRUE),
+           y = max(ndvi_results$data$Harvest_2021, na.rm = TRUE),
+           label = create_stats_annotation(ndvi_results$data, "peak_value_2021", "Harvest_2021"),
+           hjust = 0, vjust = 1)
+
+ndvi_p2 <- ggplot(ndvi_results$data, aes(x = peak_value_2022, y = Harvest_2022)) +
+  geom_point(aes(color = Treatment_2022), size = 3, alpha = 0.7) +
+  geom_smooth(method = "lm", se = TRUE, color = "black", linetype = "dashed") +
+  scale_color_manual(values = treatment_colors, labels = treatment_labels_lp) +
+  labs(title = "2022 Peak NDVI vs Harvest Yield",
+       x = paste0("NDVI on ", ndvi_results$peak_dates$peak_2022),
+       y = "Harvest Yield 2022 (kg/ha)",
+       color = "Treatment") +
+  my_theme +
+  annotate("text",
+           x = min(ndvi_results$data$peak_value_2022, na.rm = TRUE),
+           y = max(ndvi_results$data$Harvest_2022, na.rm = TRUE),
+           label = create_stats_annotation(ndvi_results$data, "peak_value_2022", "Harvest_2022"),
+           hjust = 0, vjust = 1)
+
+# Create NDRE plots
+ndre_p1 <- ggplot(ndre_results$data, aes(x = peak_value_2021, y = Harvest_2021)) +
+  geom_point(aes(color = Treatment_2021), size = 3, alpha = 0.7) +
+  geom_smooth(method = "lm", se = TRUE, color = "black", linetype = "dashed") +
+  scale_color_manual(values = treatment_colors, labels = treatment_labels_lp) +
+  labs(title = "2021 Peak NDRE vs Harvest Yield",
+       x = paste0("NDRE on ", ndre_results$peak_dates$peak_2021),
+       y = "Harvest Yield 2021 (kg/ha)",
+       color = "Treatment") +
+  my_theme +
+  theme(legend.position = "none") +
+  annotate("text", 
+           x = min(ndre_results$data$peak_value_2021, na.rm = TRUE),
+           y = max(ndre_results$data$Harvest_2021, na.rm = TRUE),
+           label = create_stats_annotation(ndre_results$data, "peak_value_2021", "Harvest_2021"),
+           hjust = 0, vjust = 1)
+
+ndre_p2 <- ggplot(ndre_results$data, aes(x = peak_value_2022, y = Harvest_2022)) +
+  geom_point(aes(color = Treatment_2022), size = 3, alpha = 0.7) +
+  geom_smooth(method = "lm", se = TRUE, color = "black", linetype = "dashed") +
+  scale_color_manual(values = treatment_colors, labels = treatment_labels_lp) +
+  labs(title = "2022 Peak NDRE vs Harvest Yield",
+       x = paste0("NDRE on ", ndre_results$peak_dates$peak_2022),
+       y = "Harvest Yield 2022 (kg/ha)",
+       color = "Treatment") +
+  my_theme +
+  annotate("text",
+           x = min(ndre_results$data$peak_value_2022, na.rm = TRUE),
+           y = max(ndre_results$data$Harvest_2022, na.rm = TRUE),
+           label = create_stats_annotation(ndre_results$data, "peak_value_2022", "Harvest_2022"),
+           hjust = 0, vjust = 1)
+
+print(ndvi_p1)
+print(ndre_p1)
+print(ndvi_p2) 
+print(ndre_p2)
+```
+
+```{r}
+# Prepare datasets for both years
+data_2021 <- reflectance_soiloptix_largeplot25_satelite %>%
+  filter(timestamp >= start_date_sb,
+         timestamp <= end_date_sb) %>%
+  mutate(Treatment = Treatment_2021,
+         timeSinceStart = as.numeric(timestamp - start_date_sb))
+
+data_2022 <- reflectance_soiloptix_largeplot25_satelite %>%
+  filter(timestamp >= start_date_ww,
+         timestamp <= end_date_ww) %>%
+  mutate(Treatment = Treatment_2022,
+         timeSinceStart = as.numeric(timestamp - start_date_ww))
+
+# Function to fit models for both indices
+fit_models <- function(data, index, param) {
+  # Formula for models
+  formula_int <- as.formula(paste(index, "~ Treatment * timeSinceStart *", param, ""))
+  formula_no_int <- as.formula(paste(index, "~ Treatment * timeSinceStart + ", param, ""))
+  
+  # Fit models
+  model_int <- lme(formula_int,
+                  random = ~1|PLOT_ID,
+                  correlation = corAR1(form = ~timeSinceStart|PLOT_ID),
+                  data = data)
+  
+  model_no_int <- lme(formula_no_int,
+                     random = ~1|PLOT_ID,
+                     correlation = corAR1(form = ~timeSinceStart|PLOT_ID),
+                     data = data)
+  
+  # Compare models
+  comparison <- anova(model_int, model_no_int)
+  
+  return(list(
+    int = model_int,
+    no_int = model_no_int,
+    comparison = comparison
+  ))
+}
+
+# Fit models for all parameters and both indices
+params <- c("clay", "humus", "ph", "fineSand")
+indices <- c("NDVI", "NDRE")
+years <- list("2021" = data_2021, "2022" = data_2022)
+
+# Store all model results
+all_models <- list()
+for(year_name in names(years)) {
+  all_models[[year_name]] <- list()
+  for(index in indices) {
+    all_models[[year_name]][[index]] <- list()
+    for(param in params) {
+      all_models[[year_name]][[index]][[param]] <- 
+        fit_models(years[[year_name]], index, param)
+    }
+  }
+}
+
+# Function to create plots with updated styling
+create_index_plot <- function(data, index, year) {
+  p <- ggplot(data, aes(x = timeSinceStart, y = get(index), color = Treatment)) +
+    geom_point(alpha = 0.5) +
+    geom_smooth() +
+    facet_wrap(~cut(clay, breaks = 3),
+              labeller = labeller(
+                clay = function(x) paste("Clay Content:", x, "%")
+              )) +
+    my_theme +  # Apply your custom theme
+    labs(title = paste(year, index, "over time by Treatment and Clay Content"),
+         x = paste("Days since", ifelse(year == "2021", "April 1st, 2021", "March 30th, 2022")),
+         y = index)
+  
+  # Only add horizontal bottom legend for 2022
+  if(year == "2022") {
+    p <- p + theme(
+      legend.position = "bottom",
+      legend.direction = "horizontal",
+      legend.box = "horizontal",
+      legend.margin = margin(t = 20)  # Add some space above the legend
+    )
+  } else {
+    p <- p + theme(legend.position = "none")  # Remove legend for 2021
+  }
+  
+  return(p)
+}
+
+# Extract results for table
+extract_model_results <- function(models) {
+  results <- data.frame(
+    Index = character(),
+    Year = character(),
+    Parameter = character(),
+    L_Ratio = numeric(),
+    p_value = character(),
+    stringsAsFactors = FALSE
+  )
+  
+  for(year_name in names(models)) {
+    for(index in names(models[[year_name]])) {
+      for(param in names(models[[year_name]][[index]])) {
+        comparison <- models[[year_name]][[index]][[param]]$comparison
+        
+        results <- rbind(results, data.frame(
+          Index = index,
+          Year = year_name,
+          Parameter = case_when(
+            param == "ph" ~ "pH",
+            param == "fineSand" ~ "Fine Sand",
+            TRUE ~ str_to_title(param)
+          ),
+          L_Ratio = comparison$L.Ratio[2],
+          p_value = ifelse(comparison$`p-value`[2] < 0.001,
+                          "< 0.001",
+                          sprintf("%.3f", comparison$`p-value`[2]))
+        ))
+      }
+    }
+  }
+  
+  return(results)
+}
+
+# Create and format table
+model_results <- extract_model_results(all_models) %>%
+  mutate(
+    H_0 = "Reflectance ~ Treatment × Time + Parameter",
+    H_1 = "Reflectance ~ Treatment × time × Parameter"
+  )
+
+# Create formatted table
+formatted_table <- model_results %>%
+  arrange(Index, Year, Parameter) %>%
+  kbl(format = "latex",
+      caption = "Tests for Treatment and Soil Parameter Interactions (Field 25)",
+      label = "soil_parameter_interactions_field25",
+      col.names = c("Vegetation Index", "Year", "Soil Parameter", "L.Ratio", 
+                   "$p$-value", "$H_0$", "$H_1$"),
+      align = c('l', 'c', 'l', 'c', 'c', 'l', 'l'),
+      booktabs = TRUE,
+      escape = FALSE) %>%
+  kable_styling(latex_options = c("scale_down", "hold_position")) %>%
+  add_header_above(c(
+    "Identification" = 3,
+    "Model Test" = 2,
+    "Test" = 2
+  )) %>%
+  pack_rows("NDRE", 1, 8) %>%
+  pack_rows("NDVI", 9, 16) %>%
+  row_spec(8, extra_latex_after = "\\midrule") %>%
+  footnote(
+    general = "Random effect (1|PLOT ID) is included in all models.",
+    escape = FALSE
+  )
+
+print("Model Results Table:")
+print(model_results)
+
+# Print comparison results for each case
+for(year_name in names(all_models)) {
+  for(index in indices) {
+    for(param in params) {
+      cat("\nResults for", year_name, "-", index, "-", param, ":\n")
+      print(all_models[[year_name]][[index]][[param]]$comparison)
+    }
+  }
+}
+
+# Create and print QQ plots for model diagnostics
+for(year_name in names(all_models)) {
+  for(index in indices) {
+    for(param in params) {
+      # QQ plot for model with interaction
+      qq_int <- ggplot(data.frame(resid = residuals(all_models[[year_name]][[index]][[param]]$int)), 
+                      aes(sample = resid)) +
+        stat_qq() +
+        stat_qq_line() +
+        labs(title = paste(index, year_name, param, "- Model with interaction"),
+             x = "Theoretical Quantiles",
+             y = "Sample Quantiles")
+      print(qq_int)
+      
+      # QQ plot for model without interaction
+      qq_no_int <- ggplot(data.frame(resid = residuals(all_models[[year_name]][[index]][[param]]$no_int)), 
+                         aes(sample = resid)) +
+        stat_qq() +
+        stat_qq_line() +
+        labs(title = paste(index, year_name, param, "- Model without interaction"),
+             x = "Theoretical Quantiles",
+             y = "Sample Quantiles")
+      print(qq_no_int)
+    }
+  }
+}
+
+# Print summary of a few example models
+cat("\nExample Model Summaries:\n")
+print(summary(all_models[["2022"]][["NDVI"]][["clay"]]$int))
+print(summary(all_models[["2022"]][["NDRE"]][["clay"]]$int))
+
+# Create and print main plots
+for(year_name in names(years)) {
+  for(index in indices) {
+    main_plot <- create_index_plot(years[[year_name]], index, year_name)
+    print(main_plot)
+  }
+}
+
+# Create and print residual plots
+for(year_name in names(all_models)) {
+  for(index in indices) {
+    for(param in params) {
+      # Residual plot for model with interaction
+      res_int <- ggplot(data.frame(
+        fitted = fitted(all_models[[year_name]][[index]][[param]]$int),
+        resid = residuals(all_models[[year_name]][[index]][[param]]$int),
+        Treatment = years[[year_name]]$Treatment), 
+        aes(x = fitted, y = resid, color = Treatment)) +
+        geom_point(alpha = 0.5) +
+        geom_smooth(method = "loess", se = FALSE) +
+        geom_hline(yintercept = 0, linetype = "dashed") +
+        scale_color_manual(values = treatment_colors) +
+        my_theme +
+        labs(title = paste(index, year_name, param, "- Residuals (with interaction)"),
+             x = "Fitted values",
+             y = "Residuals")
+      print(res_int)
+      
+      # Residual plot for model without interaction
+      res_no_int <- ggplot(data.frame(
+        fitted = fitted(all_models[[year_name]][[index]][[param]]$no_int),
+        resid = residuals(all_models[[year_name]][[index]][[param]]$no_int),
+        Treatment = years[[year_name]]$Treatment), 
+        aes(x = fitted, y = resid, color = Treatment)) +
+        geom_point(alpha = 0.5) +
+        geom_smooth(method = "loess", se = FALSE) +
+        geom_hline(yintercept = 0, linetype = "dashed") +
+        scale_color_manual(values = treatment_colors) +
+        my_theme +
+        labs(title = paste(index, year_name, param, "- Residuals (without interaction)"),
+             x = "Fitted values",
+             y = "Residuals")
+      print(res_no_int)
+    }
+  }
+}
 ```
